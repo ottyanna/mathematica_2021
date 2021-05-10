@@ -131,55 +131,141 @@ identity[idvert_,nvert_,npt_] :=
 
       If[Cases [idvert, {___,id[_,_],___}] =!= {},
 
-      Print["________________"];
+            Print["________________"];
 
-      Print[idvert];
+            Print[idvert];
 
-      id3vert = Cases [idvert, {___,id[_,_],___}];
+            id3vert = Cases [idvert, {___,id[_,_],___}];
 
-      Print[id3vert];
+            Print[id3vert];
 
-      id3verttemp = DeleteCases [id3vert, {_,_,_,_} | {___,id[_,_],___,id[_,_],___} | {id[_,_],id[_,_],id[_,_]}];
+            id3verttemp = DeleteCases [id3vert, {_,_,_,_} | {___,id[_,_],___,id[_,_],___} | {id[_,_],id[_,_],id[_,_]}];
 
-      knowns = DeleteCases [id3verttemp, id[_,_],2];
+                  If[id3verttemp=={},
 
-      unknowns = DeleteCases [id3verttemp, p | f | e ,2];
-
-      Print[id3verttemp];
-      Print[knowns];
-      Print[unknowns];
-
-      rules3vert = Table[
-
-            Which[
+                  Print["________VERTICE A 4________"];
                   
-                  Part[knowns,i,1]===e && Part[knowns,i,2]===p || Part[knowns,i,1]===p && Part[knowns,i,2]===e ||
-                  Part[knowns,i,1]===p && Part[knowns,i,2]===p || Part[knowns,i,1]===p && Part[knowns,i,2]===p,
+                  id4verttemp = DeleteCases [id3vert, {___,id[_,_],___,id[_,_],___} | {id[_,_],id[_,_],id[_,_]}];
 
-                        Part[unknowns,i,1] -> f,
+                  knowns = DeleteCases [id4verttemp, id[_,_],2];
 
-                  Part[knowns,i,1]===e && Part[knowns,i,2]===f || Part[knowns,i,1]===f && Part[knowns,i,2]===e,
+                  unknowns = DeleteCases [id4verttemp, p | f | e ,2];
 
-                        Part[unknowns,i,1] -> e,
+                  Print[knowns];
+                  Print[unknowns];
+                  
+                              rules4vert = Table[
 
-                  Part[knowns,i,1]===f && Part[knowns,i,2]===p || Part[knowns,i,1]===p && Part[knowns,i,2]===f,
+                                    Which[
+                                                
+                                          ContainsAll[knowns[[i]],{e,p,f}] || ContainsAll[knowns[[i]],{p,p,f}] || ContainsAll[knowns[[i]],{e,e,f}] ,
 
-                        Part[unknowns,i,1] -> p
+                                          Part[unknowns,i,1] -> f,
+
+                                          ContainsExactly[knowns[[i]],{e,f}],
+
+                                          Part[unknowns,i,1] -> e,
+
+                                          ContainsExactly[knowns[[i]],{p,f}],
+
+                                          Part[unknowns,i,1] -> p
             
-             ]
+                                    ]
 
 
-      ,{i,1,Length[id3verttemp]}];
+                              ,{i,1,Length[id4verttemp]}];
+
+
+                              idverttemp = idvert /. rules4vert; 
+                  
+                              identity [idverttemp,nvert,npt],
+
+                  (*if 3 vertex*)
+
+                  Print["________VERTICE A 3________"];
+
+                  knowns = DeleteCases [id3verttemp, id[_,_],2];
+
+                  unknowns = DeleteCases [id3verttemp, p | f | e ,2];
+
+                  Print[id3verttemp];
+                  Print[knowns];
+                  Print[unknowns];
+
+                  rules3vert = Table[
+
+                        Which[
+                  
+                              Part[knowns,i,1]===e && Part[knowns,i,2]===p || Part[knowns,i,1]===p && Part[knowns,i,2]===e ||
+                              Part[knowns,i,1]===p && Part[knowns,i,2]===p || Part[knowns,i,1]===p && Part[knowns,i,2]===p,
+
+                                    Part[unknowns,i,1] -> f,
+
+                              Part[knowns,i,1]===e && Part[knowns,i,2]===f || Part[knowns,i,1]===f && Part[knowns,i,2]===e,
+
+                                    Part[unknowns,i,1] -> e,
+
+                              Part[knowns,i,1]===f && Part[knowns,i,2]===p || Part[knowns,i,1]===p && Part[knowns,i,2]===f,
+
+                                    Part[unknowns,i,1] -> p
+            
+                        ]
+
+
+                  ,{i,1,Length[id3verttemp]}];
       
-      Print[rules3vert];
+                  Print[rules3vert];
 
-      idverttemp = idvert /. rules3vert; 
+                  idverttemp = idvert /. rules3vert; 
 
-      identity [idverttemp,nvert,npt],
+                  identity [idverttemp,nvert,npt]
+
+                  
+                  ],
 
       (*else*) idvert
 
       ];
+
+            (*knowns = DeleteCases [id3verttemp, id[_,_],2];
+
+            unknowns = DeleteCases [id3verttemp, p | f | e ,2];
+
+            Print[id3verttemp];
+            Print[knowns];
+            Print[unknowns];
+
+            rules3vert = Table[
+
+                  Which[
+                  
+                        Part[knowns,i,1]===e && Part[knowns,i,2]===p || Part[knowns,i,1]===p && Part[knowns,i,2]===e ||
+                        Part[knowns,i,1]===p && Part[knowns,i,2]===p || Part[knowns,i,1]===p && Part[knowns,i,2]===p,
+
+                              Part[unknowns,i,1] -> f,
+
+                        Part[knowns,i,1]===e && Part[knowns,i,2]===f || Part[knowns,i,1]===f && Part[knowns,i,2]===e,
+
+                              Part[unknowns,i,1] -> e,
+
+                        Part[knowns,i,1]===f && Part[knowns,i,2]===p || Part[knowns,i,1]===p && Part[knowns,i,2]===f,
+
+                              Part[unknowns,i,1] -> p
+            
+                  ]
+
+
+            ,{i,1,Length[id3verttemp]}];
+      
+            Print[rules3vert];
+
+            idverttemp = idvert /. rules3vert; 
+
+            identity [idverttemp,nvert,npt],*)
+
+            (*else idvert
+
+      ];*)
 
 
 
