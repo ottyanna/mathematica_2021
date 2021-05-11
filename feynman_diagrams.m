@@ -2,7 +2,7 @@
 
 (*
 ----
-Given the specific theory, this function outputs the graph in readable format, highlighting propagators P and vertices V and
+This function outputs the graph in readable format, highlighting propagators P and vertices V and
 setting the values of the unknowns through conservation laws.
 ----
 *)
@@ -36,26 +36,21 @@ write[graph_]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,momvert,m
       momvert = ReplaceRepeated[momvert,{j_,m_} /; Negative[m] && m<j -> p[j,m]];
       momvert = ReplaceRepeated[momvert,{j_,m_} /; Negative[m] && j<m -> -p[m,j]];
 
-
-
-      (*Sbagliati tutti i segni*)
-      qvert = ReplaceAll[vert,{k_,l_} /; Positive[l]->Q[l]];
-      (*Q[1]=0;
-      Q[2]=-1;*)
-      (*qverttemp = ReplaceRepeated[qvert,{j_,m_} /; Negative[m] && m<j -> +Q[j,m]];
-      qverttemp = ReplaceRepeated[qverttemp,{j_,m_} /; Negative[m] && j<m -> -Q[m,j]];*)
-      qvert = ReplaceRepeated[qvert,{j_,m_} /; Negative[m] && j<m -> Q[m,j]];
-      qvert = ReplaceRepeated[qvert,{j_,m_} /; Negative[m] && m<j -> Q[j,m]];
-
+      (*
+      This generates the list of particle identities
+      *) 
       idvert = ReplaceAll[vert,{k_,l_} /; Positive[l]->id[l]];
       idvert = ReplaceRepeated[idvert,{j_,m_} /; Negative[m] && j<m -> id[m,j]];
       idvert = ReplaceRepeated[idvert,{j_,m_} /; Negative[m] && m<j -> id[j,m]];
-
+ 
       idlist = identity[idvert,nvert,npt];
 
-      Print[idlist];
+      (*Print[idlist];*)
 
-      (*Print[vert];*)
+      (*charge list*)
+      qvert = ReplaceAll[vert,{k_,l_} /; Positive[l]->Q[l]];
+      qvert = ReplaceRepeated[qvert,{j_,m_} /; Negative[m] && j<m -> Q[m,j]];
+      qvert = ReplaceRepeated[qvert,{j_,m_} /; Negative[m] && m<j -> Q[j,m]];
 
       (*Lorentz indices*)
       lorIndices = ReplaceAll[vert,{o_,s_} /; Negative[o] -> mi[s]];
@@ -125,27 +120,39 @@ momentum[momvert_,nvert_,npt_]:= Module [ {temp,unknowns,eqs,globcons,rules},
 
 ];
 
+
+(*
+----
+This function identifies the identity of all particles, regarding the direction of the arrow,
+recalling that:
+*e stays for electron (incoming arrow in initial state)
+*p for positron (outgoing arrow in initial state)
+*f for photon
+and that all external lines identities are known (a final state corresponds to the opposite arrow direction)
+----
+*)
 identity[idvert_,nvert_,npt_] := 
 
-      (*this identifies just the easy three line vertex linked to external lines *)
-
-      If[Cases [idvert, {___,id[_,_],___}] =!= {},
+      If[Cases [idvert, {___,id[_,_],___}] =!= {}, (*identifies if there are still unknown values*)
 
             Print["________________"];
 
             Print[idvert];
 
-            id3vert = Cases [idvert, {___,id[_,_],___}];
+            id3vert = Cases [idvert, {___,id[_,_],___}]; (*identifies the list of unknown values*)
 
             Print[id3vert];
 
             id3verttemp = DeleteCases [id3vert, {_,_,_,_} | {___,id[_,_],___,id[_,_],___} | {id[_,_],id[_,_],id[_,_]}];
+            (*identifies if the unknown list is a three vertex list, the first one to be elaborated,
+            also ignoring the case with two or more unknowns for vertex*)
 
-                  If[id3verttemp=={},
+            If[id3verttemp=={}, (*if there are no three vertex unknown proceed with the four vertex*)
 
                   Print["________VERTICE A 4________"];
                   
                   id4verttemp = DeleteCases [id3vert, {___,id[_,_],___,id[_,_],___} | {id[_,_],id[_,_],id[_,_]}];
+                  (*identifies the four vertex list with just one unknown for every vertex*)
 
                   knowns = DeleteCases [id4verttemp, id[_,_],2];
 
@@ -154,33 +161,43 @@ identity[idvert_,nvert_,npt_] :=
                   Print[knowns];
                   Print[unknowns];
                   
-                              rules4vert = Table[
+                  (*This solves the vertex system*)
+                  rules4vert = Table[
 
-                                    Which[
-                                                
-                                          ContainsAll[knowns[[i]],{e,p,f}] || ContainsAll[knowns[[i]],{p,p,f}] || ContainsAll[knowns[[i]],{e,e,f}] ,
+                        Which[
+                                    
+                              ContainsAll[knowns[[i]],{e,p,f}] || Sort[knowns[[i]]] === {f,p,p} || Sort[knowns[[i]]] === {e,e,f} ,
+                              (*
+                              if the 4 vertex contains e,p and f (Actually an overkill, I think) or either two electrons or two positrons and a photon,
+                              it outputs a photon 
+                              *)
 
-                                          Part[unknowns,i,1] -> f,
+                                    Part[unknowns,i,1] -> f,
 
-                                          ContainsExactly[knowns[[i]],{e,f}],
+                              Sort[knowns[[i]]]==={e,f,f},
+                              (*
+                              if the 4 vertex contains two photons and an electron, it outputs an electron
+                              *)
+                                    Part[unknowns,i,1] -> e,
 
-                                          Part[unknowns,i,1] -> e,
-
-                                          ContainsExactly[knowns[[i]],{p,f}],
-
-                                          Part[unknowns,i,1] -> p
+                              Sort[knowns[[i]]]==={f,f,p},
+                              (*
+                              if the 4 vertex contains two photons and a positron, it outputs a positron
+                              *)
+                                    Part[unknowns,i,1] -> p
             
                                     ]
 
 
-                              ,{i,1,Length[id4verttemp]}];
+                  ,{i,1,Length[id4verttemp]}];
 
-
-                              idverttemp = idvert /. rules4vert; 
+                  (*This updates the vertex list with the newly found values*)
+                  idverttemp = idvert /. rules4vert; 
                   
-                              identity [idverttemp,nvert,npt],
+                  (*If there were cases with more than one unknown this iterates the process*)
+                  identity [idverttemp,nvert,npt],
 
-                  (*if 3 vertex*)
+                  (*If the list of three verices was not empty, it uses the same mathod as above for a three line vertex*)
 
                   Print["________VERTICE A 3________"];
 
@@ -196,16 +213,21 @@ identity[idvert_,nvert_,npt_] :=
 
                         Which[
                   
-                              Part[knowns,i,1]===e && Part[knowns,i,2]===p || Part[knowns,i,1]===p && Part[knowns,i,2]===e ||
-                              Part[knowns,i,1]===p && Part[knowns,i,2]===p || Part[knowns,i,1]===p && Part[knowns,i,2]===p,
+                              ContainsOnly[knowns[[i]],{e,p}], 
+                              (*if the 3 vertex contains a positron and an electron, two electrons or two positrons
+                              it outputs a photon*)
 
                                     Part[unknowns,i,1] -> f,
 
-                              Part[knowns,i,1]===e && Part[knowns,i,2]===f || Part[knowns,i,1]===f && Part[knowns,i,2]===e,
+                              ContainsOnly[knowns[[i]],{e,f}],
+                              (*if the 3 vertex contains an electron and a photon,
+                              it outputs an electron*)
 
                                     Part[unknowns,i,1] -> e,
 
-                              Part[knowns,i,1]===f && Part[knowns,i,2]===p || Part[knowns,i,1]===p && Part[knowns,i,2]===f,
+                              ContainsOnly[knowns[[i]],{p,f}],
+                              (*if the 3 vertex contains a positron and a photon,
+                              it outputs a positron*)
 
                                     Part[unknowns,i,1] -> p
             
@@ -221,53 +243,12 @@ identity[idvert_,nvert_,npt_] :=
                   identity [idverttemp,nvert,npt]
 
                   
-                  ],
+            ],
 
-      (*else*) idvert
+            (*when the unknown list is empty it resturns the overall list of all values*) 
+            idvert
 
       ];
-
-            (*knowns = DeleteCases [id3verttemp, id[_,_],2];
-
-            unknowns = DeleteCases [id3verttemp, p | f | e ,2];
-
-            Print[id3verttemp];
-            Print[knowns];
-            Print[unknowns];
-
-            rules3vert = Table[
-
-                  Which[
-                  
-                        Part[knowns,i,1]===e && Part[knowns,i,2]===p || Part[knowns,i,1]===p && Part[knowns,i,2]===e ||
-                        Part[knowns,i,1]===p && Part[knowns,i,2]===p || Part[knowns,i,1]===p && Part[knowns,i,2]===p,
-
-                              Part[unknowns,i,1] -> f,
-
-                        Part[knowns,i,1]===e && Part[knowns,i,2]===f || Part[knowns,i,1]===f && Part[knowns,i,2]===e,
-
-                              Part[unknowns,i,1] -> e,
-
-                        Part[knowns,i,1]===f && Part[knowns,i,2]===p || Part[knowns,i,1]===p && Part[knowns,i,2]===f,
-
-                              Part[unknowns,i,1] -> p
-            
-                  ]
-
-
-            ,{i,1,Length[id3verttemp]}];
-      
-            Print[rules3vert];
-
-            idverttemp = idvert /. rules3vert; 
-
-            identity [idverttemp,nvert,npt],*)
-
-            (*else idvert
-
-      ];*)
-
-
 
 
 
