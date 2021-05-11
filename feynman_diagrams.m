@@ -128,7 +128,7 @@ recalling that:
 *e stays for electron (incoming arrow in initial state)
 *p for positron (outgoing arrow in initial state)
 *f for photon
-and that all external lines identities are known (a final state corresponds to the opposite arrow direction)
+and that all external lines identities are known 
 ----
 *)
 identity[idvert_,nvert_,npt_] := 
