@@ -8,7 +8,8 @@ setting the values of the unknowns through conservation laws.
 *)
 
 write[graph_]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,momvert,momrules,vertices,
-                                    colIndices,lorIndices,listp,qvert,qverttemp,idvert,idrules,idlist},
+                        colIndices,lorIndices,listp,qvert,qverttemp,idvert,idrules,idlist,
+                          rulestemp},
 
       (*This identifies the number of external lines and vertices*)
       indices = Flatten[graph];
@@ -79,11 +80,20 @@ write[graph_]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,momvert,m
       (*These are the rules of momentum conservation throughout the graph*)
       momrules = momentum[momvert,nvert,npt];
 
+      (*Print["*************"];
+
+      Print[idvert];
+      Print[idlist];*)
+
+      idrules = identityrules[idvert,idlist];
+
+      (*Print[idrules];*)
+
 
       
       propagators = Table[
                   
-            Apply[prop[[i]],{Apply[p,listp[[i]]],Apply[Q,listp[[i]]],Map[mi,listp[[i]]]}]
+            Apply[prop[[i]],{Apply[p,listp[[i]]],Apply[id,listp[[i]]],Apply[Q,listp[[i]]],Map[mi,listp[[i]]],Map[col,listp[[i]]]}]
             
       ,{i,1,Length[listp]}];
             
@@ -91,11 +101,20 @@ write[graph_]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,momvert,m
       (*Print[vertices];*)
       (*Print[propagators];*)
 
-      temp = Join[vertices,propagators];
+      rulestemp = Flatten[Join[momrules,idrules]];
 
-      rules = momrules;
+      temp = Flatten[Join[vertices,propagators] /.rulestemp];
 
-Flatten[temp /. rules ]
+
+      (*Print[temp];*)
+
+      rules = {V3[_][args__] -> vertex3scalarQED[args],V4[_][args__] -> vertex4scalarQED[args],P[__][args__] -> propagatorscalarQED[args]};
+
+      (*Print[rules];
+
+      Print[temp /. rules];*)
+
+      temp /.rules
 
 ];
 
@@ -191,6 +210,8 @@ identity[idvert_,nvert_,npt_] :=
 
                   ,{i,1,Length[id4verttemp]}];
 
+                  Print[rules4vert];
+
                   (*This updates the vertex list with the newly found values*)
                   idverttemp = idvert /. rules4vert; 
                   
@@ -250,21 +271,89 @@ identity[idvert_,nvert_,npt_] :=
 
       ];
 
-
-
 (*
-vertexrule[vertex_, nlines_] := Module [ {temp},
+----
+This function generates the list of transformation rules used for the particles' identity within the propagators
+---- 
+*)
+identityrules [unknowns_, knowns_] := Module[ {pos},
 
-      If[n==3,
+      pos = Position[unknowns,id[_,_]];
 
-      i*gs*(g[Part[vertex,2,1],Part[vertex,2,2]]*(Part[vertex,1,1]-Part[vertex,1,2])[P])    
-      
-      
-      
+      rules = DeleteDuplicates [Table[
+
+            Part[unknowns,pos[[i]][[1]],pos[[i]][[2]]] -> Part[knowns,pos[[i]][[1]],pos[[i]][[2]]]
+
+
+                              ,{i,1,Length[pos]}] ];
+
+rules
+];
+
+
+
+propagatorscalarQED[p_,id_,Q_,mi_List,col_List] :=
+
+      If[ id=== f,
+
+            Print("22222222");
+
+            I*SP[mi]/p^2,
+
+            i/(p^2-m^2)
+
+      ];
+
+
+vertex3scalarQED[q_List, id_List, Q_List, mi_List, col_List] := Module [ {posf,pose, posp},
+
+      (*Print[id];*)
+
+      posf = Position[id,f];
+      pose = Position[id,e];
+      posp = Position[id,p];
+
+      (*Print["+++++++++++"];
+
+      Print[posp];
+      Print[pose];
+      Print[posf[[1]][[1]]];*)
+
+
+      Which[pose==={},
+
+            (*Print["Pose empty"];*)
+
+            I*qe*(Part[q,posp[[1]][[1]]]+Part[q,posp[[2]][[1]]])[Part[mi,posf[[1]][[1]]]],
+
+            posp==={},
+
+            (*Print["Posp empty"];*)
+
+            I*qe*(-Part[q,pose[[1]][[1]]]-Part[q,pose[[2]][[1]]])[Part[mi,posf[[1]][[1]]]],
+
+            pose=!={} && posp=!={},
+
+            (*Print["...."];*)
+
+            I*qe*(-Part[q,pose[[1]][[1]]]+Part[q,posp[[1]][[1]]])[Part[mi,posf[[1]][[1]]]]
+
       ]
 
+];
 
 
+vertex4scalarQED[q_List, id_List, Q_List, mi_List, col_List] := Module [ {posf},
 
 
-];*)
+      posf = Position[id,f];
+
+      (*Print[posf];*)
+
+
+      2*I*qe^2*SP[Part[mi,posf[[1]][[1]]],Part[mi,posf[[2]][[1]]]]
+
+
+];
+
+
