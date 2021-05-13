@@ -296,7 +296,7 @@ propagatorscalarQED[p_,id_,Q_,mi_List,col_List] :=
 
       If[ id=== f,
 
-            Print("22222222");
+            (*Print("22222222");*)
 
             I*SP[mi]/p^2,
 
@@ -309,34 +309,34 @@ vertex3scalarQED[q_List, id_List, Q_List, mi_List, col_List] := Module [ {posf,p
 
       (*Print[id];*)
 
-      posf = Position[id,f];
-      pose = Position[id,e];
-      posp = Position[id,p];
+      posf = Flatten[Position[id,f]];
+      pose = Flatten[Position[id,e]];
+      posp = Flatten[Position[id,p]];
 
       (*Print["+++++++++++"];
 
       Print[posp];
       Print[pose];
-      Print[posf[[1]][[1]]];*)
+      Print[posf[[1]]];*)
 
 
       Which[pose==={},
 
             (*Print["Pose empty"];*)
 
-            I*qe*(Part[q,posp[[1]][[1]]]+Part[q,posp[[2]][[1]]])[Part[mi,posf[[1]][[1]]]],
+            I*qe*(Part[q,posp[[1]]]+Part[q,posp[[2]]])[Part[mi,posf[[1]]]],
 
             posp==={},
 
             (*Print["Posp empty"];*)
 
-            I*qe*(-Part[q,pose[[1]][[1]]]-Part[q,pose[[2]][[1]]])[Part[mi,posf[[1]][[1]]]],
+            I*qe*(-Part[q,pose[[1]]]-Part[q,pose[[2]]])[Part[mi,posf[[1]]]],
 
             pose=!={} && posp=!={},
 
             (*Print["...."];*)
 
-            I*qe*(-Part[q,pose[[1]][[1]]]+Part[q,posp[[1]][[1]]])[Part[mi,posf[[1]][[1]]]]
+            I*qe*(-Part[q,pose[[1]]]+Part[q,posp[[1]]])[Part[mi,posf[[1]]]]
 
       ]
 
