@@ -7,9 +7,9 @@ setting the values of the unknowns through conservation laws.
 ----
 *)
 
-write[graph_]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,momvert,momrules,vertices,
+write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,momvert,momrules,vertices,
                         colIndices,lorIndices,listp,qvert,qverttemp,idvert,idrules,idlist,
-                          rulestemp},
+                          rulestemp,rulesQED,rulesQCD,chargetemp,rule},
 
       (*This identifies the number of external lines and vertices*)
       indices = Flatten[graph];
@@ -26,6 +26,21 @@ write[graph_]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,momvert,m
       (*Print[listp];
       Print[prop];*)
 
+      (*This verifies that the overall charge is conserved*)
+      chargetemp = Apply[Plus,ide /. {p->1,e->-1,f->0}];
+      (*Print[chargetemp];*)
+      If[chargetemp != 0,
+            Return[Print["carica non si conserva"]],
+            chargetemp
+      ];
+
+      (*Print["lista in input ",ide];*)
+
+      rule=Table[id[i]->ide[[i]],{i,1,npt}];
+
+      (*Print["rule =",rule];*)
+
+
       (*
       This generates the pattern of the momentum linked to every line,
       using the convention that p[n] with n positive is an external leg momentum,
@@ -40,13 +55,15 @@ write[graph_]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,momvert,m
       (*
       This generates the list of particle identities
       *) 
-      idvert = ReplaceAll[vert,{k_,l_} /; Positive[l]->id[l]];
-      idvert = ReplaceRepeated[idvert,{j_,m_} /; Negative[m] && j<m -> id[m,j]];
+      idvert = ReplaceAll[vert,{k_,l_} /; Positive[l]->id[l]] /. rule;
+      idvert = ReplaceRepeated[idvert,{j_,m_} /; Negative[m] && j<m -> -id[m,j]];
       idvert = ReplaceRepeated[idvert,{j_,m_} /; Negative[m] && m<j -> id[j,m]];
  
-      idlist = identity[idvert,nvert,npt];
+      idlist = identity[idvert];
 
-      (*Print[idlist];*)
+      (*Print["idlist ",idlist];
+      Print["idlist ",DeleteDuplicates[Flatten[idlist,1]]];*)
+      (*questo flatten dipende da quanti cicli fa*)
 
       (*charge list*)
       qvert = ReplaceAll[vert,{k_,l_} /; Positive[l]->Q[l]];
@@ -80,14 +97,14 @@ write[graph_]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,momvert,m
       (*These are the rules of momentum conservation throughout the graph*)
       momrules = momentum[momvert,nvert,npt];
 
-      (*Print["*************"];
+      Print["*************"];
 
       Print[idvert];
-      Print[idlist];*)
+      Print[idlist];
 
       idrules = identityrules[idvert,idlist];
 
-      (*Print[idrules];*)
+      Print[idrules];
 
 
       
@@ -108,13 +125,16 @@ write[graph_]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,momvert,m
 
       (*Print[temp];*)
 
-      rules = {V3[_][args__] -> vertex3scalarQED[args],V4[_][args__] -> vertex4scalarQED[args],P[__][args__] -> propagatorscalarQED[args]};
+      rulesQED = {V3[_][args__] -> vertex3scalarQED[args],V4[_][args__] -> vertex4scalarQED[args],P[__][args__] -> propagatorscalarQED[args]};
+      (*rulesQCD = {V3[_][args__] -> vertex3QCD[args],V4[_][args__] -> vertex4QCD[args],P[__][args__] -> propagatorQCD[args]};*)
 
-      (*Print[rules];
+      (*Print[rules];*)
 
-      Print[temp /. rules];*)
+      (*Print[rulesQED];*)
 
-      temp /.rules
+      temp /.rulesQED
+
+      (*Apply[Times, temp /.rulesQED]*)
 
 ];
 
@@ -150,30 +170,34 @@ recalling that:
 and that all external lines identities are known 
 ----
 *)
-identity[idvert_,nvert_,npt_] := 
 
-      If[Cases [idvert, {___,id[_,_],___}] =!= {}, (*identifies if there are still unknown values*)
+identity[idvert_] := 
+
+      If[Cases [idvert, {___,_.*id[_,_],___}] =!= {}, (*identifies if there are still unknown values*)
 
             Print["________________"];
 
             Print[idvert];
 
-            id3vert = Cases [idvert, {___,id[_,_],___}]; (*identifies the list of unknown values*)
+            id3vert = Cases [idvert, {___,_.*id[_,_],___}]; (*identifies the list of unknown values*)
 
             Print[id3vert];
 
-            id3verttemp = DeleteCases [id3vert, {_,_,_,_} | {___,id[_,_],___,id[_,_],___} | {id[_,_],id[_,_],id[_,_]}];
+            id3verttemp = DeleteCases [id3vert, {_,_,_,_} | {___,_.*id[_,_],___,_.*id[_,_],___} | {_.*id[_,_],_.*id[_,_],_.*id[_,_]}];
             (*identifies if the unknown list is a three vertex list, the first one to be elaborated,
             also ignoring the case with two or more unknowns for vertex*)
 
-            If[id3verttemp=={}, (*if there are no three vertex unknown proceed with the four vertex*)
+            If[id3verttemp==={}, (*if there are no three vertex unknown proceed with the four vertex*)
 
                   Print["________VERTICE A 4________"];
+
+                  (*NOTA: per avere un vertice come lambda*phi^4 (e-e+->e-e+, 
+                  genero lista mettendo una graffa extra come nel solve[] e poi su identity, qui nel vertice a 4 metto map[identity,idverttemp])*)
                   
-                  id4verttemp = DeleteCases [id3vert, {___,id[_,_],___,id[_,_],___} | {id[_,_],id[_,_],id[_,_]}];
+                  id4verttemp = DeleteCases [id3vert, {___,_.*id[_,_],___,_.*id[_,_],___} | {_.*id[_,_],_.*id[_,_],_.*id[_,_]}];
                   (*identifies the four vertex list with just one unknown for every vertex*)
 
-                  knowns = DeleteCases [id4verttemp, id[_,_],2];
+                  knowns = DeleteCases [id4verttemp, _.*id[_,_],2];
 
                   unknowns = DeleteCases [id4verttemp, p | f | e ,2];
 
@@ -197,32 +221,47 @@ identity[idvert_,nvert_,npt_] :=
                               (*
                               if the 4 vertex contains two photons and an electron, it outputs an electron
                               *)
-                                    Part[unknowns,i,1] -> e,
+                                    Part[unknowns,i,1] -> (Part[unknowns,i,1] /. l_.*id[_,_]->l)*e,
 
                               Sort[knowns[[i]]]==={f,f,p},
                               (*
                               if the 4 vertex contains two photons and a positron, it outputs a positron
                               *)
-                                    Part[unknowns,i,1] -> p
+                                    Part[unknowns,i,1] -> (Part[unknowns,i,1] /. l_.*id[_,_]->l)*p,
+
+                              (*lambda*phi^4*)
+
+                              Sort[knowns[[i]]] === {e,p,p},
+
+                                    Part[unknowns,i,1] -> (Part[unknowns,i,1] /. l_.*id[_,_]->l)*e,
+
+                              Sort[knowns[[i]]] === {e,e,p},
+
+                                    Part[unknowns,i,1] -> (Part[unknowns,i,1] /. l_.*id[_,_]->l)*p
             
                                     ]
 
 
-                  ,{i,1,Length[id4verttemp]}];
+                  ,{i,1,Length[id4verttemp]}] /. {-p->e,-e->p,m_.*id[j_,k_]->id[j,k]};
 
                   Print[rules4vert];
 
                   (*This updates the vertex list with the newly found values*)
-                  idverttemp = idvert /. rules4vert; 
+                  idverttemp = idvert /. _.*id[j_,k_]->id[j,k];
+
+                  Print[idverttemp];
+
+                  idverttemp = idverttemp /. rules4vert;
+                  (*idverttemp = idverttemp /. {-p->e,-e->p,-f->f};*) 
                   
                   (*If there were cases with more than one unknown this iterates the process*)
-                  identity [idverttemp,nvert,npt],
+                  identity[idverttemp],
 
                   (*If the list of three verices was not empty, it uses the same mathod as above for a three line vertex*)
 
                   Print["________VERTICE A 3________"];
 
-                  knowns = DeleteCases [id3verttemp, id[_,_],2];
+                  knowns = DeleteCases [id3verttemp, _.*id[_,_],2];
 
                   unknowns = DeleteCases [id3verttemp, p | f | e ,2];
 
@@ -244,13 +283,13 @@ identity[idvert_,nvert_,npt_] :=
                               (*if the 3 vertex contains an electron and a photon,
                               it outputs an electron*)
 
-                                    Part[unknowns,i,1] -> e,
+                                    Part[unknowns,i,1] -> (Part[unknowns,i,1] /. l_.*id[_,_]->l)*e,
 
                               ContainsOnly[knowns[[i]],{p,f}],
                               (*if the 3 vertex contains a positron and a photon,
                               it outputs a positron*)
 
-                                    Part[unknowns,i,1] -> p
+                                    Part[unknowns,i,1] -> (Part[unknowns,i,1] /. l_.*id[_,_]->l)*p
             
                         ]
 
@@ -259,17 +298,42 @@ identity[idvert_,nvert_,npt_] :=
       
                   Print[rules3vert];
 
-                  idverttemp = idvert /. rules3vert; 
+                  rules3vert = rules3vert  /. {-p->e,-e->p,_.*id[j_,k_]->id[j,k]};
 
-                  identity [idverttemp,nvert,npt]
+                  Print[rules3vert];
+
+                  Print[idvert];
+
+                  idverttemp = idvert /. _.*id[j_,k_]->id[j,k];
+
+                  idverttemp = idverttemp /. rules3vert; 
+
+                  Print[idverttemp];
+
+                  (*idverttemp = idverttemp /. {-p->e,-e->p,-f->f};*)
+
+                  Print[idverttemp];
+
+                  identity[idverttemp]
 
                   
             ],
 
+            (*Print[idvert];*)
+
             (*when the unknown list is empty it resturns the overall list of all values*) 
             idvert
 
-      ];
+]; 
+
+
+
+
+
+
+
+
+
 
 (*
 ----
@@ -278,29 +342,34 @@ This function generates the list of transformation rules used for the particles'
 *)
 identityrules [unknowns_, knowns_] := Module[ {pos},
 
-      pos = Position[unknowns,id[_,_]];
+      pos = Position[unknowns,id[_,_],2]; (*se va sotto il livello due prende la pos di -id[_,_]*)
+
+      Print[pos];
 
       rules = DeleteDuplicates [Table[
 
             Part[unknowns,pos[[i]][[1]],pos[[i]][[2]]] -> Part[knowns,pos[[i]][[1]],pos[[i]][[2]]]
 
-
-                              ,{i,1,Length[pos]}] ];
+                              ,{i,1,Length[pos]}]] ;
 
 rules
 ];
 
 
-
+(*
+----
+These three functions generate Feynman rules for every propagator and every vertex
+----
+*)
 propagatorscalarQED[p_,id_,Q_,mi_List,col_List] :=
 
-      If[ id=== f,
-
-            (*Print("22222222");*)
+      If[ id=== f, (*if the propagator is a photon*)
 
             I*SP[mi]/p^2,
 
-            i/(p^2-m^2)
+            (*if the propagator is a lepton*)
+
+            I/(p^2-m^2)
 
       ];
 
@@ -320,19 +389,19 @@ vertex3scalarQED[q_List, id_List, Q_List, mi_List, col_List] := Module [ {posf,p
       Print[posf[[1]]];*)
 
 
-      Which[pose==={},
+      Which[pose==={}, (*I have two positrons*)
 
             (*Print["Pose empty"];*)
 
             I*qe*(Part[q,posp[[1]]]+Part[q,posp[[2]]])[Part[mi,posf[[1]]]],
 
-            posp==={},
+            posp==={}, (*I have two electrons*)
 
             (*Print["Posp empty"];*)
 
             I*qe*(-Part[q,pose[[1]]]-Part[q,pose[[2]]])[Part[mi,posf[[1]]]],
 
-            pose=!={} && posp=!={},
+            pose=!={} && posp=!={}, (*I have both a positron and an electron*)
 
             (*Print["...."];*)
 
@@ -346,14 +415,33 @@ vertex3scalarQED[q_List, id_List, Q_List, mi_List, col_List] := Module [ {posf,p
 vertex4scalarQED[q_List, id_List, Q_List, mi_List, col_List] := Module [ {posf},
 
 
-      posf = Position[id,f];
+      posf = Position[id,f]; (*identifies the position of the two photons in the list arguments*)
 
       (*Print[posf];*)
 
+      If[posf === {},
+
+      I*lambda,
 
       2*I*qe^2*SP[Part[mi,posf[[1]][[1]]],Part[mi,posf[[2]][[1]]]]
+
+      ]
 
 
 ];
 
 
+
+
+
+(*
+propagatorQCD[p_,id_,Q_,mi_List,col_List] := -I*SP[mi]delta[col]/p^2;
+
+vertex3QCD[q_List, id_List, Q_List, mi_List, col_List] := 
+
+      I*gs*f[col]*(g[mi[[1]],mi[[2]]]*(q[[1]]-q[[2]])[mi[[3]]] + g[mi[[2]],mi[[3]]*(q[[2]]-q[[3]])[mi[[1]]] + 
+                  g[mi[[3]],mi[[1]]]*(q[[3]]-q[[1]])[mi[[2]]]);
+
+vertex4QCD[q_List, id_List, Q_List, mi_List, col_List] := 
+
+      I*gs^2*f[col]*(f[col[[1]],col[[2]],col[[]]] );*)
