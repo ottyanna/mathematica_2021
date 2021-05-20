@@ -29,13 +29,14 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       (*This verifies that the overall charge is conserved*)
       chargetemp = Apply[Plus,ide /. {p->1,e->-1,f->0}];
       (*Print[chargetemp];*)
-      If[chargetemp != 0,
-            Return[Print["carica non si conserva"]],
+            If[chargetemp != 0,
+                  Return[Print["carica non si conserva"]],
             chargetemp
-      ];
+            ];
 
       (*Print["lista in input ",ide];*)
 
+      (*This is done to use the values of the input identities*)
       rule=Table[id[i]->ide[[i]],{i,1,npt}];
 
       (*Print["rule =",rule];*)
@@ -60,6 +61,14 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       idvert = ReplaceRepeated[idvert,{j_,m_} /; Negative[m] && m<j -> id[j,m]];
  
       idlist = identity[idvert];
+
+
+      (*When the function returns Null, it is beacuse there is an unphysical vertex*)
+      If[idlist===Null,
+      
+            Return[Print["Impossibile procedere"]]
+
+      ];
 
       (*Print["idlist ",idlist];
       Print["idlist ",DeleteDuplicates[Flatten[idlist,1]]];*)
@@ -118,6 +127,7 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       (*Print[vertices];*)
       (*Print[propagators];*)
 
+
       rulestemp = Flatten[Join[momrules,idrules]];
 
       temp = Flatten[Join[vertices,propagators] /.rulestemp];
@@ -126,15 +136,14 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       (*Print[temp];*)
 
       rulesQED = {V3[_][args__] -> vertex3scalarQED[args],V4[_][args__] -> vertex4scalarQED[args],P[__][args__] -> propagatorscalarQED[args]};
-      (*rulesQCD = {V3[_][args__] -> vertex3QCD[args],V4[_][args__] -> vertex4QCD[args],P[__][args__] -> propagatorQCD[args]};*)
 
       (*Print[rules];*)
 
       (*Print[rulesQED];*)
 
-      temp /.rulesQED
+      (*contraction[temp /.rulesQED];*)
 
-      (*Apply[Times, temp /.rulesQED]*)
+      temp /.rulesQED
 
 ];
 
@@ -164,10 +173,11 @@ momentum[momvert_,nvert_,npt_]:= Module [ {temp,unknowns,eqs,globcons,rules},
 ----
 This function identifies the identity of all particles, regarding the direction of the arrow,
 recalling that:
-*e stays for electron (incoming arrow in initial state)
-*p for positron (outgoing arrow in initial state)
-*f for photon
-and that all external lines identities are known 
+*e stays for electron
+*p for positron
+*f for photon,
+that all external lines identities are known and the flow convention is all incoming and the internal lines go from -m to -l with m<l,
+so that the identity is always found in the m vertex.
 ----
 *)
 
@@ -190,78 +200,109 @@ identity[idvert_] :=
             If[id3verttemp==={}, (*if there are no three vertex unknown proceed with the four vertex*)
 
                   Print["________VERTICE A 4________"];
-
-                  (*NOTA: per avere un vertice come lambda*phi^4 (e-e+->e-e+, 
-                  genero lista mettendo una graffa extra come nel solve[] e poi su identity, qui nel vertice a 4 metto map[identity,idverttemp])*)
                   
                   id4verttemp = DeleteCases [id3vert, {___,_.*id[_,_],___,_.*id[_,_],___} | {_.*id[_,_],_.*id[_,_],_.*id[_,_]}];
                   (*identifies the four vertex list with just one unknown for every vertex*)
 
-                  knowns = DeleteCases [id4verttemp, _.*id[_,_],2];
+                  If[id4verttemp =!= {}, (*Proceeds if there are unambiguosly known vertices*)
 
-                  unknowns = DeleteCases [id4verttemp, p | f | e ,2];
+                        knowns = DeleteCases [id4verttemp, _.*id[_,_],2];
+
+                        (*This checks if there are unphysical vertices, otherwise it breaks and returns to main*)
+                        Which[Cases[knowns,{f,f,f}]=!={},
+                  
+                                    Return[Print["vertice a 4 con tre fotoni!"]],
+
+                              Cases[knowns,{e,e,e}]=!={},
+                  
+                                    Return[Print["vertice a 4 con tre fotoni!"]],
+
+                              Cases[knowns,{p,p,p}]=!={},
+                  
+                                    Return[Print["vertice a 4 con tre fotoni!"]]
+
+                        ];
+
+                        unknowns = DeleteCases [id4verttemp, p | f | e ,2];
 
                   Print[knowns];
                   Print[unknowns];
                   
-                  (*This solves the vertex system*)
-                  rules4vert = Table[
+                        (*This solves the vertex system*)
+                        rules4vert = Table[
 
-                        Which[
+                              Which[
                                     
-                              ContainsAll[knowns[[i]],{e,p,f}] || Sort[knowns[[i]]] === {f,p,p} || Sort[knowns[[i]]] === {e,e,f} ,
-                              (*
-                              if the 4 vertex contains e,p and f (Actually an overkill, I think) or either two electrons or two positrons and a photon,
-                              it outputs a photon 
-                              *)
+                                    Sort[knowns[[i]]]==={e,f,p} || Sort[knowns[[i]]] === {f,p,p} || Sort[knowns[[i]]] === {e,e,f} ,
+                                    (*
+                                    if the 4 vertex contains e,p and f (Actually an overkill, I think) or either two electrons or two positrons and a photon,
+                                    it outputs a photon 
+                                    *)
 
-                                    Part[unknowns,i,1] -> f,
+                                          Part[unknowns,i,1] -> f,
 
-                              Sort[knowns[[i]]]==={e,f,f},
-                              (*
-                              if the 4 vertex contains two photons and an electron, it outputs an electron
-                              *)
-                                    Part[unknowns,i,1] -> (Part[unknowns,i,1] /. l_.*id[_,_]->l)*e,
+                                    Sort[knowns[[i]]]==={e,f,f},
+                                    (*
+                                    if the 4 vertex contains two photons and an electron, it outputs an electron
+                                    *)
+                                          Part[unknowns,i,1] -> (Part[unknowns,i,1] /. l_.*id[_,_]->l)*e,
 
-                              Sort[knowns[[i]]]==={f,f,p},
-                              (*
-                              if the 4 vertex contains two photons and a positron, it outputs a positron
-                              *)
-                                    Part[unknowns,i,1] -> (Part[unknowns,i,1] /. l_.*id[_,_]->l)*p,
+                                    Sort[knowns[[i]]]==={f,f,p},
+                                    (*
+                                    if the 4 vertex contains two photons and a positron, it outputs a positron
+                                    *)
+                                          Part[unknowns,i,1] -> (Part[unknowns,i,1] /. l_.*id[_,_]->l)*p,
 
-                              (*lambda*phi^4*)
+                                    (*lambda*phi^4*)
 
-                              Sort[knowns[[i]]] === {e,p,p},
+                                    Sort[knowns[[i]]] === {e,p,p},
 
-                                    Part[unknowns,i,1] -> (Part[unknowns,i,1] /. l_.*id[_,_]->l)*e,
+                                          Part[unknowns,i,1] -> (Part[unknowns,i,1] /. l_.*id[_,_]->l)*e,
 
-                              Sort[knowns[[i]]] === {e,e,p},
+                                    Sort[knowns[[i]]] === {e,e,p},
 
-                                    Part[unknowns,i,1] -> (Part[unknowns,i,1] /. l_.*id[_,_]->l)*p
+                                          Part[unknowns,i,1] -> (Part[unknowns,i,1] /. l_.*id[_,_]->l)*p
             
                                     ]
 
 
-                  ,{i,1,Length[id4verttemp]}] /. {-p->e,-e->p,m_.*id[j_,k_]->id[j,k]};
+                        ,{i,1,Length[id4verttemp]}] /. {-p->e,-e->p,m_.*id[j_,k_]->id[j,k]}; (*this rule resets the right values following the convention*)
 
                   Print[rules4vert];
 
-                  (*This updates the vertex list with the newly found values*)
-                  idverttemp = idvert /. _.*id[j_,k_]->id[j,k];
+                        (*These update the vertex list with the newly found values*)
+                        idverttemp = idvert /. _.*id[j_,k_]->id[j,k];
 
                   Print[idverttemp];
 
-                  idverttemp = idverttemp /. rules4vert;
-                  (*idverttemp = idverttemp /. {-p->e,-e->p,-f->f};*) 
+                        idverttemp = idverttemp /. rules4vert;
+                        (*idverttemp = idverttemp /. {-p->e,-e->p,-f->f};*) 
                   
-                  (*If there were cases with more than one unknown this iterates the process*)
-                  identity[idverttemp],
+                        (*This iterates the process to solve all verices*)
+                        identity[idverttemp],
+
+                        (*if id4verttemp is empty, so there are more options*)
+
+                        Print["ambiguità"] 
+
+                  (*NOTA: per avere un vertice come lambda*phi^4 (e-e+->e-e+, 
+                  genero lista mettendo una graffa extra come nel solve[] e poi su identity, qui nel vertice a 4 metto map[identity,idverttemp])*)
+                  
+                  (*succede solo nel vertice a 4 credo, si risolve con il doppio {{opz1},{opz2}} e poi il map*)
+
+                  ],
 
                   (*If the list of three verices was not empty, it uses the same mathod as above for a three line vertex*)
 
                   Print["________VERTICE A 3________"];
 
                   knowns = DeleteCases [id3verttemp, _.*id[_,_],2];
+
+                  If[Cases[knowns,{f,f}]=!={},
+                  
+                  Return[Print["vertice a 3 con due fotoni!"]]
+
+                  ];
 
                   unknowns = DeleteCases [id3verttemp, p | f | e ,2];
 
@@ -325,12 +366,6 @@ identity[idvert_] :=
             idvert
 
 ]; 
-
-
-
-
-
-
 
 
 
@@ -431,17 +466,22 @@ vertex4scalarQED[q_List, id_List, Q_List, mi_List, col_List] := Module [ {posf},
 ];
 
 
-
-
-
 (*
-propagatorQCD[p_,id_,Q_,mi_List,col_List] := -I*SP[mi]delta[col]/p^2;
+contraction[prod_list] := If[ ContainsAny[prod,SP[{_,_}]],
 
-vertex3QCD[q_List, id_List, Q_List, mi_List, col_List] := 
+      ,
 
-      I*gs*f[col]*(g[mi[[1]],mi[[2]]]*(q[[1]]-q[[2]])[mi[[3]]] + g[mi[[2]],mi[[3]]*(q[[2]]-q[[3]])[mi[[1]]] + 
-                  g[mi[[3]],mi[[1]]]*(q[[3]]-q[[1]])[mi[[2]]]);
 
-vertex4QCD[q_List, id_List, Q_List, mi_List, col_List] := 
 
-      I*gs^2*f[col]*(f[col[[1]],col[[2]],col[[]]] );*)
+
+
+      prod
+
+];
+*)
+
+
+
+
+
+
