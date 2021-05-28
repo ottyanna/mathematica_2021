@@ -9,7 +9,7 @@ setting the values of the unknowns through conservation laws.
 
 write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,momvert,momrules,vertices,
                         colIndices,lorIndices,listp,qvert,qverttemp,idvert,idrules,idlist,
-                          rulestemp,rulesQED,rulesQCD,chargetemp,rule},
+                          rulestemp,rulesQED,rulesQCD,chargetemp,rule,temptemp},
 
       (*This identifies the number of external lines and vertices*)
       indices = Flatten[graph];
@@ -50,15 +50,15 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       so that the sign convention is well defined
       *)
       momvert = ReplaceAll[vert,{k_,l_} /; Positive[l]->p[l]];
-      momvert = ReplaceRepeated[momvert,{j_,m_} /; Negative[m] && m<j -> p[j,m]];
-      momvert = ReplaceRepeated[momvert,{j_,m_} /; Negative[m] && j<m -> -p[m,j]];
+      momvert = ReplaceRepeated[momvert,{j_,m_} /; Negative[m] && m<j -> -p[j,m]];
+      momvert = ReplaceRepeated[momvert,{j_,m_} /; Negative[m] && j<m -> p[m,j]];
 
       (*
       This generates the list of particle identities
       *) 
       idvert = ReplaceAll[vert,{k_,l_} /; Positive[l]->id[l]] /. rule;
-      idvert = ReplaceRepeated[idvert,{j_,m_} /; Negative[m] && j<m -> -id[m,j]];
-      idvert = ReplaceRepeated[idvert,{j_,m_} /; Negative[m] && m<j -> id[j,m]];
+      idvert = ReplaceRepeated[idvert,{j_,m_} /; Negative[m] && j<m -> id[m,j]];
+      idvert = ReplaceRepeated[idvert,{j_,m_} /; Negative[m] && m<j -> -id[j,m]];
  
       idlist = identity[idvert];
 
@@ -141,9 +141,15 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
 
       (*Print[rulesQED];*)
 
-      (*contraction[temp /.rulesQED];*)
+      temp=temp /.rulesQED;
 
-      temp /.rulesQED
+      Print[temp];
+
+      temptemp=cont[temp];
+
+      temptemp
+
+      (*temp /.rulesQED*)
 
 ];
 
@@ -298,9 +304,17 @@ identity[idvert_] :=
 
                   knowns = DeleteCases [id3verttemp, _.*id[_,_],2];
 
-                  If[Cases[knowns,{f,f}]=!={},
+                  Which[Cases[knowns,{f,f}]=!={},
                   
-                  Return[Print["vertice a 3 con due fotoni!"]]
+                        Return[Print["vertice a 3 con due fotoni!"]],
+
+                        Cases[knowns,{e,e}]=!={},
+
+                        Return[Print["vertice a 3 con due e-!Forse 2*e- vertex!"]],
+
+                        Cases[knowns,{p,p}]=!={},
+
+                        Return[Print["vertice a 3 con due e+!Forse 2*e+ vertex!"]]
 
                   ];
 
@@ -458,7 +472,7 @@ vertex4scalarQED[q_List, id_List, Q_List, mi_List, col_List] := Module [ {posf},
 
       I*lambda,
 
-      2*I*qe^2*SP[Part[mi,posf[[1]][[1]]],Part[mi,posf[[2]][[1]]]]
+      2*I*qe^2*SP[{Part[mi,posf[[1]][[1]]],Part[mi,posf[[2]][[1]]]}]
 
       ]
 
@@ -466,20 +480,113 @@ vertex4scalarQED[q_List, id_List, Q_List, mi_List, col_List] := Module [ {posf},
 ];
 
 
-(*
-contraction[prod_list] := If[ ContainsAny[prod,SP[{_,_}]],
+(*cont[prod_List] := If[ MatchQ[prod, {___, SP[{_, _}]*___, ___}],
 
-      ,
+      mi1 = prod /. {___, SP[{x_, _}]*___, ___} -> x;
+      mi2 = prod /. {___, SP[{_, y_}]*___, ___} -> y;
+
+      (*Print[mi1];
+      Print[mi2];*)
+
+      prodtemp = prod /. {mi1->mi2,SP[{mi1, mi2}] -> 1};
+
+      (*prodtemp = prod /. SP[{mi2,mi2}]->1;*)
+
+      cont[prodtemp],
+
+      prod
+
+];*)
+
+cont[prod_List] := Module[ {temp,mi1,mi2,mi3,mi4,prodtemp},
+
+      mi1 = prod /. {___, I*qe*___[mi[x_]], ___} ->x;
+
+      (*Print["mi1=",mi1];*)
+
+      mi2 = prod /. {___, SP[{mi[mi1], mi[y_]}]*___, ___} | {___, SP[{mi[y_],mi[mi1]}]*___, ___} -> y;
+
+      (*Print["mi2=",mi2];*)
 
 
+      If[   mi2=!=prod, (*I have indices to saturate*)
+
+            (*prodtemp = ReplaceRepeated[prod,mi1->mi2];*)
+
+            (*Print[prodtemp];*)
+
+            (*Print[mi1];
+
+            Print[mi2];*)
+
+            (*Print[prod];*)
+
+            prodtemp = prod /. {SP[{mi[mi1], mi[mi2]}] | SP[{mi[mi2],mi[mi1]}] -> 1, mi[mi1] -> mi[mi2]}; (*non funziona.... se tolgo mi*)
+
+            (*Print[prodtemp];*)
+
+            prodtemp = prodtemp /. {h___, I*qe*x___[mi[mi2]],f___, I*qe*y___[mi[mi2]],g___} -> {h,f,g,I*qe*SP[x,y]};
+
+            (*Print[prodtemp];*)
+
+            (*Return[prodtemp],*)
+
+            Return[cont[prodtemp]],
+
+            (*else continue ahead*)
+
+            prod
+            
+      ];
+
+      mi3 = prod /. {___, ___*SP[{mi[x_],_}], ___ ,SP[{mi[z_],mi[w_]}]*___,___} | {___, ___*SP[{_,mi[x_]}], ___ ,___*SP[{mi[z_],mi[w_]}],___} /; x==z || x==w ->x;
+
+      (*Print[mi3];*)
 
 
+      If[mi3 =!= prod,
+
+            (*Print["mi3=",mi3];*)
+
+            mi4 = prod /. {___, SP[{mi[mi3], mi[y_]}]*___, ___} | {___, SP[{mi[y_],mi[mi3]}]*___, ___} /; y<0 -> y;
+
+            If[mi4 =!= prod,
+
+                  (*Print["mi4=",mi4];*)
+
+                  prodtemp = prod /. {SP[{mi[mi3], mi[mi4]}] | SP[{mi[mi4], mi[mi3]}] -> 1,mi[mi4]->mi[mi3]};
+
+                  Return[cont[prodtemp]],
+
+                  prod];
+
+            mi5 = prod /. {___, SP[{mi[mi3], mi[y_]}]*___, ___} | {___, SP[{mi[y_],mi[mi3]}]*___, ___} /; y>0 -> y;
+
+            If[mi5 =!= prod,
+
+                  (*Print["mi5=",mi5];*)
+
+                  prodtemp = prod /. {SP[{mi[mi3], mi[mi5]}] | SP[{mi[mi5], mi[mi3]}] -> 1, mi[mi3]->mi[mi5]};
+
+                  Return[cont[prodtemp]],
+
+                  prod];
+
+            (*else continue ahead*)
+
+            prod
+
+      ];
+
+      (*ovviamente sto sbagliando qualcosa, ma non so cosa, mi piace il feel della tastiera, ma devo stare attenta a non schiacciare cose a caso
+      Devo riscrivere tutta questa funzione in manierqa compatta, ripensaci.
+      *)
+
+      (*Print[mi4];*)
 
       prod
 
 ];
-*)
-
 
 
 
