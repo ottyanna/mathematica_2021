@@ -106,14 +106,14 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       (*These are the rules of momentum conservation throughout the graph*)
       momrules = momentum[momvert,nvert,npt];
 
-      Print["*************"];
+      (*Print["*************"];
 
       Print[idvert];
-      Print[idlist];
+      Print[idlist];*)
 
       idrules = identityrules[idvert,idlist];
 
-      Print[idrules];
+      (*Print[idrules];*)
 
 
       
@@ -191,13 +191,13 @@ identity[idvert_] :=
 
       If[Cases [idvert, {___,_.*id[_,_],___}] =!= {}, (*identifies if there are still unknown values*)
 
-            Print["________________"];
+            (*Print["________________"];
 
-            Print[idvert];
+            Print[idvert];*)
 
             id3vert = Cases [idvert, {___,_.*id[_,_],___}]; (*identifies the list of unknown values*)
 
-            Print[id3vert];
+            (*Print[id3vert];*)
 
             id3verttemp = DeleteCases [id3vert, {_,_,_,_} | {___,_.*id[_,_],___,_.*id[_,_],___} | {_.*id[_,_],_.*id[_,_],_.*id[_,_]}];
             (*identifies if the unknown list is a three vertex list, the first one to be elaborated,
@@ -205,7 +205,7 @@ identity[idvert_] :=
 
             If[id3verttemp==={}, (*if there are no three vertex unknown proceed with the four vertex*)
 
-                  Print["________VERTICE A 4________"];
+                  (*Print["________VERTICE A 4________"];*)
                   
                   id4verttemp = DeleteCases [id3vert, {___,_.*id[_,_],___,_.*id[_,_],___} | {_.*id[_,_],_.*id[_,_],_.*id[_,_]}];
                   (*identifies the four vertex list with just one unknown for every vertex*)
@@ -231,8 +231,8 @@ identity[idvert_] :=
 
                         unknowns = DeleteCases [id4verttemp, p | f | e ,2];
 
-                  Print[knowns];
-                  Print[unknowns];
+                  (*Print[knowns];
+                  Print[unknowns];*)
                   
                         (*This solves the vertex system*)
                         rules4vert = Table[
@@ -274,12 +274,12 @@ identity[idvert_] :=
 
                         ,{i,1,Length[id4verttemp]}] /. {-p->e,-e->p,m_.*id[j_,k_]->id[j,k]}; (*this rule resets the right values following the convention*)
 
-                  Print[rules4vert];
+                  (*Print[rules4vert];*)
 
                         (*These update the vertex list with the newly found values*)
                         idverttemp = idvert /. _.*id[j_,k_]->id[j,k];
 
-                  Print[idverttemp];
+                  (*Print[idverttemp];*)
 
                         idverttemp = idverttemp /. rules4vert;
                         (*idverttemp = idverttemp /. {-p->e,-e->p,-f->f};*) 
@@ -300,7 +300,7 @@ identity[idvert_] :=
 
                   (*If the list of three verices was not empty, it uses the same mathod as above for a three line vertex*)
 
-                  Print["________VERTICE A 3________"];
+                  (*Print["________VERTICE A 3________"];*)
 
                   knowns = DeleteCases [id3verttemp, _.*id[_,_],2];
 
@@ -320,9 +320,9 @@ identity[idvert_] :=
 
                   unknowns = DeleteCases [id3verttemp, p | f | e ,2];
 
-                  Print[id3verttemp];
+                  (*Print[id3verttemp];
                   Print[knowns];
-                  Print[unknowns];
+                  Print[unknowns];*)
 
                   rules3vert = Table[
 
@@ -351,23 +351,23 @@ identity[idvert_] :=
 
                   ,{i,1,Length[id3verttemp]}];
       
-                  Print[rules3vert];
+                  (*Print[rules3vert];*)
 
                   rules3vert = rules3vert  /. {-p->e,-e->p,_.*id[j_,k_]->id[j,k]};
 
-                  Print[rules3vert];
+                  (*Print[rules3vert];
 
-                  Print[idvert];
+                  Print[idvert];*)
 
                   idverttemp = idvert /. _.*id[j_,k_]->id[j,k];
 
                   idverttemp = idverttemp /. rules3vert; 
 
-                  Print[idverttemp];
+                  (*Print[idverttemp];*)
 
                   (*idverttemp = idverttemp /. {-p->e,-e->p,-f->f};*)
 
-                  Print[idverttemp];
+                  (*Print[idverttemp];*)
 
                   identity[idverttemp]
 
@@ -393,7 +393,7 @@ identityrules [unknowns_, knowns_] := Module[ {pos},
 
       pos = Position[unknowns,id[_,_],2]; (*se va sotto il livello due prende la pos di -id[_,_]*)
 
-      Print[pos];
+      (*Print[pos];*)
 
       rules = DeleteDuplicates [Table[
 
@@ -480,27 +480,10 @@ vertex4scalarQED[q_List, id_List, Q_List, mi_List, col_List] := Module [ {posf},
 ];
 
 
-(*cont[prod_List] := If[ MatchQ[prod, {___, SP[{_, _}]*___, ___}],
-
-      mi1 = prod /. {___, SP[{x_, _}]*___, ___} -> x;
-      mi2 = prod /. {___, SP[{_, y_}]*___, ___} -> y;
-
-      (*Print[mi1];
-      Print[mi2];*)
-
-      prodtemp = prod /. {mi1->mi2,SP[{mi1, mi2}] -> 1};
-
-      (*prodtemp = prod /. SP[{mi2,mi2}]->1;*)
-
-      cont[prodtemp],
-
-      prod
-
-];*)
 
 cont[prod_List] := Module[ {temp,mi1,mi2,mi3,mi4,prodtemp},
 
-      mi1 = prod /. {___, I*qe*___[mi[x_]], ___} ->x;
+      mi1 = prod /. {___, I*qe*___[mi[x_]], ___} /; x<0 ->x;
 
       (*Print["mi1=",mi1];*)
 
@@ -510,8 +493,6 @@ cont[prod_List] := Module[ {temp,mi1,mi2,mi3,mi4,prodtemp},
 
 
       If[   mi2=!=prod, (*I have indices to saturate*)
-
-            (*prodtemp = ReplaceRepeated[prod,mi1->mi2];*)
 
             (*Print[prodtemp];*)
 
