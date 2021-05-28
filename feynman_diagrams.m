@@ -9,7 +9,10 @@ setting the values of the unknowns through conservation laws.
 
 write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,momvert,momrules,vertices,
                         colIndices,lorIndices,listp,qvert,qverttemp,idvert,idrules,idlist,
-                          rulestemp,rulesQED,rulesQCD,chargetemp,rule,temptemp},
+                          rulestemp,rulesQED,rulesQCD,chargetemp,rule,temptemp,sub},
+
+
+      SetAttributes[SP, Orderless];
 
       (*This identifies the number of external lines and vertices*)
       indices = Flatten[graph];
@@ -145,9 +148,13 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
 
       Print[temp];
 
-      temptemp=cont[temp];
+      sub = {SP[a__, {b_}] SP[c__, {b_}] -> SP[a, c], SP[b_, {c_}]^2 -> SP[b, b], SP[{a_},{b_}]*SP[d__,{a_}] -> SP[d,{b}]};
 
-      temptemp
+      temptemp = Apply[Times,temp];
+
+      (*Print[temptemp //. sub];*)
+
+      temptemp //. sub
 
       (*temp /.rulesQED*)
 
@@ -282,7 +289,6 @@ identity[idvert_] :=
                   (*Print[idverttemp];*)
 
                         idverttemp = idverttemp /. rules4vert;
-                        (*idverttemp = idverttemp /. {-p->e,-e->p,-f->f};*) 
                   
                         (*This iterates the process to solve all verices*)
                         identity[idverttemp],
@@ -414,7 +420,7 @@ propagatorscalarQED[p_,id_,Q_,mi_List,col_List] :=
 
       If[ id=== f, (*if the propagator is a photon*)
 
-            I*SP[mi]/p^2,
+            I*SP[{mi[[1]]},{mi[[2]]}]/p^2,
 
             (*if the propagator is a lepton*)
 
@@ -442,19 +448,19 @@ vertex3scalarQED[q_List, id_List, Q_List, mi_List, col_List] := Module [ {posf,p
 
             (*Print["Pose empty"];*)
 
-            I*qe*(Part[q,posp[[1]]]+Part[q,posp[[2]]])[Part[mi,posf[[1]]]],
+            I*qe*SP[Part[q,posp[[1]]]+Part[q,posp[[2]]],{Part[mi,posf[[1]]]}],
 
             posp==={}, (*I have two electrons*)
 
             (*Print["Posp empty"];*)
 
-            I*qe*(-Part[q,pose[[1]]]-Part[q,pose[[2]]])[Part[mi,posf[[1]]]],
+            I*qe*SP[-Part[q,pose[[1]]]-Part[q,pose[[2]]],{Part[mi,posf[[1]]]}],
 
             pose=!={} && posp=!={}, (*I have both a positron and an electron*)
 
             (*Print["...."];*)
 
-            I*qe*(-Part[q,pose[[1]]]+Part[q,posp[[1]]])[Part[mi,posf[[1]]]]
+            I*qe*SP[-Part[q,pose[[1]]]+Part[q,posp[[1]]],{Part[mi,posf[[1]]]}]
 
       ]
 
@@ -472,7 +478,7 @@ vertex4scalarQED[q_List, id_List, Q_List, mi_List, col_List] := Module [ {posf},
 
       I*lambda,
 
-      2*I*qe^2*SP[{Part[mi,posf[[1]][[1]]],Part[mi,posf[[2]][[1]]]}]
+      2*I*qe^2*SP[{Part[mi,posf[[1]][[1]]]},{Part[mi,posf[[2]][[1]]]}]
 
       ]
 
@@ -480,96 +486,15 @@ vertex4scalarQED[q_List, id_List, Q_List, mi_List, col_List] := Module [ {posf},
 ];
 
 
-
-cont[prod_List] := Module[ {temp,mi1,mi2,mi3,mi4,prodtemp},
-
-      mi1 = prod /. {___, I*qe*___[mi[x_]], ___} /; x<0 ->x;
-
-      (*Print["mi1=",mi1];*)
-
-      mi2 = prod /. {___, SP[{mi[mi1], mi[y_]}]*___, ___} | {___, SP[{mi[y_],mi[mi1]}]*___, ___} -> y;
-
-      (*Print["mi2=",mi2];*)
+Wardidentity[graph_List, iden_List] := Module[ {temp,m},
 
 
-      If[   mi2=!=prod, (*I have indices to saturate*)
 
-            (*Print[prodtemp];*)
-
-            (*Print[mi1];
-
-            Print[mi2];*)
-
-            (*Print[prod];*)
-
-            prodtemp = prod /. {SP[{mi[mi1], mi[mi2]}] | SP[{mi[mi2],mi[mi1]}] -> 1, mi[mi1] -> mi[mi2]}; (*non funziona.... se tolgo mi*)
-
-            (*Print[prodtemp];*)
-
-            prodtemp = prodtemp /. {h___, I*qe*x___[mi[mi2]],f___, I*qe*y___[mi[mi2]],g___} -> {h,f,g,I*qe*SP[x,y]};
-
-            (*Print[prodtemp];*)
-
-            (*Return[prodtemp],*)
-
-            Return[cont[prodtemp]],
-
-            (*else continue ahead*)
-
-            prod
-            
-      ];
-
-      mi3 = prod /. {___, ___*SP[{mi[x_],_}], ___ ,SP[{mi[z_],mi[w_]}]*___,___} | {___, ___*SP[{_,mi[x_]}], ___ ,___*SP[{mi[z_],mi[w_]}],___} /; x==z || x==w ->x;
-
-      (*Print[mi3];*)
+      m=Map[write[#,iden]&,graph];
 
 
-      If[mi3 =!= prod,
-
-            (*Print["mi3=",mi3];*)
-
-            mi4 = prod /. {___, SP[{mi[mi3], mi[y_]}]*___, ___} | {___, SP[{mi[y_],mi[mi3]}]*___, ___} /; y<0 -> y;
-
-            If[mi4 =!= prod,
-
-                  (*Print["mi4=",mi4];*)
-
-                  prodtemp = prod /. {SP[{mi[mi3], mi[mi4]}] | SP[{mi[mi4], mi[mi3]}] -> 1,mi[mi4]->mi[mi3]};
-
-                  Return[cont[prodtemp]],
-
-                  prod];
-
-            mi5 = prod /. {___, SP[{mi[mi3], mi[y_]}]*___, ___} | {___, SP[{mi[y_],mi[mi3]}]*___, ___} /; y>0 -> y;
-
-            If[mi5 =!= prod,
-
-                  (*Print["mi5=",mi5];*)
-
-                  prodtemp = prod /. {SP[{mi[mi3], mi[mi5]}] | SP[{mi[mi5], mi[mi3]}] -> 1, mi[mi3]->mi[mi5]};
-
-                  Return[cont[prodtemp]],
-
-                  prod];
-
-            (*else continue ahead*)
-
-            prod
-
-      ];
-
-      (*ovviamente sto sbagliando qualcosa, ma non so cosa, mi piace il feel della tastiera, ma devo stare attenta a non schiacciare cose a caso
-      Devo riscrivere tutta questa funzione in manierqa compatta, ripensaci.
-      *)
-
-      (*Print[mi4];*)
-
-      prod
+      m 
 
 ];
-
-
-
 
 
