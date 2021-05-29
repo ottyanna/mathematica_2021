@@ -1,5 +1,8 @@
 (* ::Package:: *)
 
+SetAttributes[SP, {Orderless}];
+sub = {SP[a__, {b_}] SP[c__, {b_}] :> SP[a, c], SP[b_, {c_}]^2 :> SP[b, b], SP[{a_},{b_}]*SP[d__,{a_}] :> SP[d,{b}]};
+
 (*
 ----
 This function outputs the graph in readable format, highlighting propagators P and vertices V and
@@ -9,10 +12,8 @@ setting the values of the unknowns through conservation laws.
 
 write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,momvert,momrules,vertices,
                         colIndices,lorIndices,listp,qvert,qverttemp,idvert,idrules,idlist,
-                          rulestemp,rulesQED,rulesQCD,chargetemp,rule,temptemp,sub},
+                          rulestemp,rulesQED,rulesQCD,chargetemp,rule,temptemp},
 
-
-      SetAttributes[SP, Orderless];
 
       (*This identifies the number of external lines and vertices*)
       indices = Flatten[graph];
@@ -69,7 +70,9 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       (*When the function returns Null, it is beacuse there is an unphysical vertex*)
       If[idlist===Null,
       
-            Return[Print["Impossibile procedere"]]
+            Print["Impossibile procedere"];
+
+            Return[0];
 
       ];
 
@@ -109,14 +112,16 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       (*These are the rules of momentum conservation throughout the graph*)
       momrules = momentum[momvert,nvert,npt];
 
-      (*Print["*************"];
+      Print["*************"];
 
-      Print[idvert];
+      Print[vertices];
+
+      (*Print[idvert];
       Print[idlist];*)
 
       idrules = identityrules[idvert,idlist];
 
-      (*Print[idrules];*)
+      Print[idrules];
 
 
       
@@ -133,6 +138,8 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
 
       rulestemp = Flatten[Join[momrules,idrules]];
 
+      (*vertices = vertices //. _.*p[a_,b_]-> -p[a,b];*) (*non mi piace molto questa soluzione...*)
+
       temp = Flatten[Join[vertices,propagators] /.rulestemp];
 
 
@@ -148,7 +155,7 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
 
       Print[temp];
 
-      sub = {SP[a__, {b_}] SP[c__, {b_}] -> SP[a, c], SP[b_, {c_}]^2 -> SP[b, b], SP[{a_},{b_}]*SP[d__,{a_}] -> SP[d,{b}]};
+      (*sub = {SP[a__, {b_}] SP[c__, {b_}] -> SP[a, c], SP[b_, {c_}]^2 -> SP[b, b], SP[{a_},{b_}]*SP[d__,{a_}] -> SP[d,{b}]};*)
 
       temptemp = Apply[Times,temp];
 
@@ -361,13 +368,21 @@ identity[idvert_] :=
 
                   rules3vert = rules3vert  /. {-p->e,-e->p,_.*id[j_,k_]->id[j,k]};
 
-                  (*Print[rules3vert];
+                  Print[rules3vert];
 
-                  Print[idvert];*)
+                  Print[idvert];
 
-                  idverttemp = idvert /. _.*id[j_,k_]->id[j,k];
+                  (*idverttemp = idvert /. _.*id[j_,k_]->id[j,k];
+
+                  idverttemp = idverttemp /. rules3vert;*)
+
+                  idverttemp = idvert /. l_.*id[j_,k_]->-l*id[j,k];
+
+                  Print[idverttemp];
 
                   idverttemp = idverttemp /. rules3vert; 
+
+                  idverttemp = idverttemp /. {-p->e,-e->p,f->f};
 
                   (*Print[idverttemp];*)
 
@@ -437,6 +452,8 @@ vertex3scalarQED[q_List, id_List, Q_List, mi_List, col_List] := Module [ {posf,p
       pose = Flatten[Position[id,e]];
       posp = Flatten[Position[id,p]];
 
+      Print[q];
+
       (*Print["+++++++++++"];
 
       Print[posp];
@@ -486,14 +503,36 @@ vertex4scalarQED[q_List, id_List, Q_List, mi_List, col_List] := Module [ {posf},
 ];
 
 
-Wardidentity[graph_List, iden_List] := Module[ {temp,m},
+Wardidentity[graph_List, iden_List] := Module[ {temp,ma},
 
 
+      posf = Position[iden,f];
 
-      m=Map[write[#,iden]&,graph];
+      ma = write[#,iden]&/@graph;
 
+      (*ma = Apply[Plus,ma];*)
 
-      m 
+      ma=-ma[[1]]+ma[[3]]+ma[[4]];
+
+      ma = ma * SP[{mi[posf[[1]][[1]]]},p[posf[[1]][[1]]]]*SP[{mi[posf[[2]][[1]]]},p[posf[[2]][[1]]]];
+
+      Print[ma];
+
+      ma = Expand[ma];
+
+      rule = { (p[a_]+p[b_])^2 -> m^2 + 2*SP[p[a],p[b]],SP[a__,v_.*p[c__]+w___]->v*SP[a,p[c]]+SP[a,w] };
+
+      ma = ma //. rule; 
+
+      Print[ma];
+
+      ma = ma //. sub;
+
+      Print[ma];
+
+      ma = Together[ma]
+
+      (*Collect[ma,SP[epsilon[x_],y_]]*)
 
 ];
 
