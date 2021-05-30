@@ -61,8 +61,8 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       This generates the list of particle identities
       *) 
       idvert = ReplaceAll[vert,{k_,l_} /; Positive[l]->id[l]] /. rule;
-      idvert = ReplaceRepeated[idvert,{j_,m_} /; Negative[m] && j<m -> id[m,j]];
-      idvert = ReplaceRepeated[idvert,{j_,m_} /; Negative[m] && m<j -> -id[j,m]];
+      idvert = ReplaceRepeated[idvert,{j_,m_} /; Negative[m] && j<m -> -id[m,j]];
+      idvert = ReplaceRepeated[idvert,{j_,m_} /; Negative[m] && m<j -> id[j,m]];
  
       idlist = identity[idvert];
 
@@ -291,11 +291,13 @@ identity[idvert_] :=
                   (*Print[rules4vert];*)
 
                         (*These update the vertex list with the newly found values*)
-                        idverttemp = idvert /. _.*id[j_,k_]->id[j,k];
+                        (*idverttemp = idvert /. _.*id[j_,k_]->id[j,k];*)
 
                   (*Print[idverttemp];*)
 
-                        idverttemp = idverttemp /. rules4vert;
+                        idverttemp = idvert /. rules4vert; (*ma siam sicuri....?*)
+
+                        idverttemp = idverttemp /. {-p->e,-e->p,-f->f};
                   
                         (*This iterates the process to solve all verices*)
                         identity[idverttemp],
@@ -351,13 +353,13 @@ identity[idvert_] :=
                               (*if the 3 vertex contains an electron and a photon,
                               it outputs an electron*)
 
-                                    Part[unknowns,i,1] -> (Part[unknowns,i,1] /. l_.*id[_,_]->l)*e,
+                                    Part[unknowns,i,1] -> (Part[unknowns,i,1] /. l_.*id[_,_]->l)*p,
 
                               ContainsOnly[knowns[[i]],{p,f}],
                               (*if the 3 vertex contains a positron and a photon,
                               it outputs a positron*)
 
-                                    Part[unknowns,i,1] -> (Part[unknowns,i,1] /. l_.*id[_,_]->l)*p
+                                    Part[unknowns,i,1] -> (Part[unknowns,i,1] /. l_.*id[_,_]->l)*e
             
                         ]
 
@@ -372,17 +374,19 @@ identity[idvert_] :=
 
                   Print[idvert];
 
-                  (*idverttemp = idvert /. _.*id[j_,k_]->id[j,k];
+                  (*idverttemp = idvert /. _.*id[j_,k_]->id[j,k];*)
 
-                  idverttemp = idverttemp /. rules3vert;*)
+                  (*idverttemp = idverttemp /. rules3vert;*)
 
-                  idverttemp = idvert /. l_.*id[j_,k_]->-l*id[j,k];
+                  (*idverttemp = idvert /. l_.*id[j_,k_]->-l*id[j,k];*)
 
-                  Print[idverttemp];
+                  (*Print[idverttemp];*)
 
-                  idverttemp = idverttemp /. rules3vert; 
+                  idverttemp = idvert /. rules3vert;
 
-                  idverttemp = idverttemp /. {-p->e,-e->p,f->f};
+                    Print[idverttemp];
+
+                  idverttemp = idverttemp /. {-p->e,-e->p,-f->f};
 
                   (*Print[idverttemp];*)
 
