@@ -1,4 +1,5 @@
 grafobase = { {1,-1}, {2,-1}, {3,-1} };
+tadpole = {{1,-1}, {-1,-1}}
 
 generagrafi[n_ ] := Module[ {temp},
 
@@ -16,6 +17,21 @@ generagrafi[n_ ] := Module[ {temp},
                               listagrafi
 			    ];
 
+generagrafiOneLoop[n_ ] := Module[ {temp},
+
+			    i=1;
+			    listagrafi = {tadpole};
+			    
+			    While[ i<n,
+				   nuovigrafi3 = Flatten[ Map[ inserzione3, listagrafi], 1];
+				   nuovigrafi4 = Flatten[ Map[ inserzione4, listagrafi], 1];
+				   
+				   listagrafi = Join[ nuovigrafi3, nuovigrafi4 ];
+				   ++i;
+				   ];
+
+                              listagrafi
+			    ];
 
 inserzione3[grafo_] := Module[{temp},
 			      indici = Flatten[grafo];

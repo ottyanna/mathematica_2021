@@ -1,6 +1,5 @@
 (* ::Package:: *)
 
-
 (*
 ----
 This defines the rules for the scalar product and the index contraction
@@ -218,7 +217,7 @@ identity[idvert_] :=
 
                         (*ELSE: id4verttemp is empty, so there are more options*)
 
-                        Print["ambiguità"] 
+                        Print["ambiguit\[AGrave]"] 
 
                         (*NOTA: per avere un vertice come lambda*phi^4 (e-e+->e-e+, 
                         genero lista mettendo una graffa extra come nel solve[] e poi su identity, qui nel vertice a 4 metto map[identity,idverttemp])*)
@@ -317,7 +316,7 @@ vertex3scalarQED[q_List, id_List, mi_List, col_List] := Module [ {posf,pose, pos
       posp = Flatten[Position[id,1]];
 
 
-      Which[pose==={}, (*I have two positrons*)
+      (*Which[pose==={}, (*I have two positrons*)
 
             I*qe*SP[Part[q,posp[[1]]]+Part[q,posp[[2]]],{Part[mi,posf[[1]]]}],
 
@@ -329,7 +328,9 @@ vertex3scalarQED[q_List, id_List, mi_List, col_List] := Module [ {posf,pose, pos
 
             I*qe*SP[-Part[q,pose[[1]]]+Part[q,posp[[1]]],{Part[mi,posf[[1]]]}]
 
-      ]
+      ]*)
+
+      I*qe*SP[-Part[q,pose[[1]]]+Part[q,posp[[1]]],{Part[mi,posf[[1]]]}] (*Dove i più e dove i meno? dovrebbe bastar solo questo..*)
 
 ];
 
@@ -350,41 +351,19 @@ vertex4scalarQED[q_List, id_List, mi_List, col_List] := Module [ {posf},
 
 ];
 
+amplitudes[graph_List, iden_List] := Module[ {temp,ma,n},
 
-Wardidentity[graph_List, iden_List] := Module[ {temp,ma},
+      n = Length[iden];
 
       Print["identities = ", iden];
 
       posf = Position[iden,0];
+      pose = Position[iden,1];
 
       ma = write[#,iden]&/@graph;
 
-      (*ma = Apply[Plus,ma];*)
+      ma = ma * SP[{mi[posf[[2]][[1]]]},epsilon[posf[[2]][[1]]]]*SP[{mi[posf[[1]][[1]]]},epsilon[posf[[1]][[1]]]];
 
-      Print["verifica identità di Ward ....."];
-
-      ma=-ma[[1]]+ma[[3]]+ma[[4]];
-
-      ma = ma * SP[{mi[posf[[1]][[1]]]},p[posf[[1]][[1]]]]*SP[{mi[posf[[2]][[1]]]},p[posf[[2]][[1]]]];
-
-      Print[ma];
-
-      ma = Expand[ma];
-
-      rule = { (p[a_]+p[b_])^2 -> m^2 + 2*SP[p[a],p[b]],SP[a__,v_.*p[c__]+w___]->v*SP[a,p[c]]+SP[a,w] };
-
-      ma = ma //. rule; 
-
-      Print[ma];
-
-      ma = ma //. sub;
-
-      Print[ma];
-
-      ma = Together[ma]
-
-      (*Collect[ma,SP[epsilon[x_],y_]]*)
+      ma
 
 ];
-
-
