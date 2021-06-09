@@ -17,7 +17,7 @@ setting the values of the unknowns through conservation laws.
 
 write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,momvert,momrules,vertices,
                         colIndices,lorIndices,listp,idvert,idrules,idlist,
-                          rulestemp,rulesQED,rulesQCD,chargetemp,rule},
+                          rulestemp,rulesQED,rulesQCD,chargetemp,rule,loop,kl},
 
       Print["*************"];
       Print["grafo = ", graph];
@@ -29,6 +29,10 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
 
       (*This generates a list of points connected to every single vertex*)
       vert = Table[Cases[graph,{x___,i,y___}->{i,x + y}],{i,nvert,-1}];
+
+      (*One Loop*)
+
+
 
       (*This generates the list of all propagators*)
       listp = DeleteCases[graph,{i_,_} /; Positive[i]];
@@ -55,6 +59,29 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       momvert = ReplaceRepeated[momvert,{j_,m_} /; Negative[m] && m<j -> -p[j,m]];
       momvert = ReplaceRepeated[momvert,{j_,m_} /; Negative[m] && j<m -> p[m,j]];
 
+      (*One Loop on one line vertice 4*)
+      momvert = ReplaceRepeated[momvert,{j_,m_} /; j==m -> k[m]];
+      momvert= ReplaceAll[ momvert, {x___,k[z_],y___}->{x, -k[z], k[z], y}];
+
+      Print["momvert",momvert];
+
+      (*one loop on one line vertice 3*)
+      momvert= ReplaceAll[ momvert, {x___,l_.*p[z_,w_],y___,l_.*p[z_,w_],q___}->{x, -l*k[z], y,l*p[z,w],q}];
+
+      (*one general loop*)
+      loop = graph;
+      While[Cases[loop, {x_, y_} /; Count[loop, x, 2] < 2 || Count[loop, y, 2] < 2] =!= {}, (*This finds the loop*) 
+            loop = DeleteCases[loop, {x_, y_} /; Count[loop, x, 2] < 2 || Count[loop, y, 2] < 2]
+      ];
+
+      If[loop =!= {} && ContainsNone[loop,{{-1,-2}}],
+            kl = loop[[1]] /. {l_,s_} -> p[l,s];
+            momvert = momvert /. kl -> -k,
+          loop  
+      ];
+
+      Print[momvert];
+
       (*
       This generates the list of particle identities
       *) 
@@ -62,6 +89,12 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       idvert = ReplaceRepeated[idvert,{j_,m_} /; Negative[m] && m<j -> -id[j,m]];
       idvert = ReplaceRepeated[idvert,{j_,m_} /; Negative[m] && j<m -> id[m,j]];
  
+
+      (*One Loop on one line*)
+      idvert = ReplaceAll[ idvert, {x___,{z_,z_},y___}->{x, -id[z,z], id[z,z], y}]; (*va sistemato tutto dopo prima per gestire una lista...*)
+
+      Print["***",idvert];
+
       idlist = identity[idvert];
 
       (*When the function returns Null, it is because there is an unphysical vertex, furthermore I have to exclude the others*)
@@ -69,7 +102,7 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       
             Print["Impossibile procedere! Vertici non fisici!"];
 
-            Return[0];
+            (*Return[0];*)
 
       ];
 
@@ -100,6 +133,8 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       (*These are the rules of momentum conservation throughout the graph*)
       momrules = momentum[momvert,nvert,npt];
 
+      Print["momrules ", momrules];
+
       idrules = identityrules[idvert,idlist];
 
       
@@ -108,11 +143,9 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
             Apply[prop[[i]],{Apply[p,listp[[i]]],Apply[id,listp[[i]]],Map[mi,listp[[i]]],Map[col,listp[[i]]]}]
             
       ,{i,1,Length[listp]}];
-            
-
-      rulestemp = Flatten[Join[momrules,idrules]];
-
       
+      rulestemp = Flatten[Join[momrules,idrules]];   
+          
       temp = Flatten[Join[vertices,propagators] /.rulestemp];
 
 
