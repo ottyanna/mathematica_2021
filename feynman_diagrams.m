@@ -74,10 +74,11 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
             loop = DeleteCases[loop, {x_, y_} /; Count[loop, x, 2] < 2 || Count[loop, y, 2] < 2]
       ];
 
-      If[loop =!= {} && ContainsNone[loop,{{-1,-2}}],
+      If[loop =!= {} && loop =!= {{-1,-2},{-1,-2}}, (*it was ContainsNone[loop,{{-1,-2}}]*)
+            Print[loop];
             kl = loop[[1]] /. {l_,s_} -> p[l,s];
             momvert = momvert /. kl -> -k,
-          loop  
+            loop  
       ];
 
       Print[momvert];
@@ -92,10 +93,14 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
 
       (*One Loop on one line*)
       idvert = ReplaceAll[ idvert, {x___,{z_,z_},y___}->{x, -id[z,z], id[z,z], y}]; (*va sistemato tutto dopo prima per gestire una lista...*)
+      idvert = ReplaceAll[ idvert, {x___, p_.*id[z_,w_], v___, p_.*id[z_,w_], y___}->{x, p*id[z,w], v, -p*id[z,w], y}];
 
       Print["***",idvert];
 
-      idlist = identity[idvert];
+      If[loop === {},
+      idlist = identity[idvert],
+      idlist = identityOneLoop[idvert,loop]
+      ]
 
       (*When the function returns Null, it is because there is an unphysical vertex, furthermore I have to exclude the others*)
       If[idlist===Null || ContainsAny[{{0,0,0},{0,0,0,0}},idlist] || Apply[Plus,idlist,2] =!= Table[0,{i,1,Length[idlist]}],
@@ -302,7 +307,68 @@ identity[idvert_] :=
 
 ]; 
 
+identityOneLoop[idvert_,loop_] := Module [ {pos,n,vert,templist,temp,tempino}, (*questo metodo fallirebbe miseramente se avessi più di un loop*)
 
+      (*loop non serve*)
+      Print["i'm in identity one loop"];
+      n = Length[idvert];
+      (*Print[n];
+
+      Print[Apply[g,idvert]];*)
+
+      templist = recursion[idvert];
+      (*Print["... 2 print ",templist];*)
+
+
+      While[ MatchQ[temp,templist] =!= True,
+      templist = Flatten[Map[recursion,templist],1];
+      (*Print["lista a multilivelli", templist];*)
+      temp = templist /. {___,{___,l_.*id[x_,y_],___},___} -> l*id[x,y];
+      (*Print["********************** ",MatchQ[temp,templist]];*)
+      ];
+      
+      Print["lista a multilivelli", templist];
+
+      Print["quante comb ", Length[templist]];
+
+      Print["Check su quante sono buone"];
+
+      n = Length[idvert];
+
+      Print["firstly " , Apply[Plus,templist,{2}]];
+
+      tempino = Table[0,{i,1,n}];
+
+      pos = Position[Apply[Plus,templist,{2}],tempino];
+
+      Print[tempino];
+
+      Print[pos];
+
+      templist = Extract[templist,pos];
+
+      Print[templist];
+
+      templist = DeleteCases[templist, {___,{0,0,0},___} | {___,{0,0,0,0},___} , 2];
+
+      Print[templist]; 
+
+      (*NOTA: Potrebbero esserci altri check, controlla tutto, inoltre devi restituire templist,
+      inoltre nel main se la lista ritorna vuota, manda in vertici non fisici immediatamente, se no devo mettere if {} return [0], qui direttamente*)
+
+];
+
+recursion[idvert_] := Module[ {temp}, (*credo non funzioni con g2 e g1...*)
+
+      (*Print["sto agendo su", idvert];*)
+      temp = idvert /. {___,{___,_.*id[x_,y_],___},___} -> id[x,y]; (*giusto scritto così? prefatt non necessario per simm 1,-1*)
+      (*Print["temp ",temp];*)
+
+      templist = idvert /. {{temp -> 0}, {temp -> 1}, {temp -> -1}};
+      (*Print["... 1 print ",templist];*)
+
+      templist
+];
 
 
 (*
