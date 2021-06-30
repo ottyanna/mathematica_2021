@@ -63,7 +63,7 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       momvert = ReplaceRepeated[momvert,{j_,m_} /; j==m -> k[m]];
       momvert= ReplaceAll[ momvert, {x___,k[z_],y___}->{x, -k[z], k[z], y}];
 
-      Print["momvert",momvert];
+      Print["momvert ",momvert];
 
       (*one loop on one line vertice 3*)
       momvert= ReplaceAll[ momvert, {x___,l_.*p[z_,w_],y___,l_.*p[z_,w_],q___}->{x, -l*k[z], y,l*p[z,w],q}];
@@ -74,14 +74,14 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
             loop = DeleteCases[loop, {x_, y_} /; Count[loop, x, 2] < 2 || Count[loop, y, 2] < 2]
       ];
 
-      If[loop =!= {} && loop =!= {{-1,-2},{-1,-2}}, (*it was ContainsNone[loop,{{-1,-2}}]*)
+      If[loop =!= {} && loop =!= {{-1,-2},{-1,-2}}, (*it was ContainsNone[loop,{{-1,-2}}]*) (*serve sistemarlo per g4*)
             Print[loop];
             kl = loop[[1]] /. {l_,s_} -> p[l,s];
             momvert = momvert /. kl -> -k,
             loop  
       ];
 
-      Print[momvert];
+      (*Print[momvert];*)
 
       (*
       This generates the list of particle identities
@@ -89,18 +89,21 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       idvert = ReplaceAll[vert,{k_,l_} /; Positive[l]->id[l]] /. rule;
       idvert = ReplaceRepeated[idvert,{j_,m_} /; Negative[m] && m<j -> -id[j,m]];
       idvert = ReplaceRepeated[idvert,{j_,m_} /; Negative[m] && j<m -> id[m,j]];
+
+      (*Print["....",idvert];*)
  
 
       (*One Loop on one line*)
       idvert = ReplaceAll[ idvert, {x___,{z_,z_},y___}->{x, -id[z,z], id[z,z], y}]; (*va sistemato tutto dopo prima per gestire una lista...*)
-      idvert = ReplaceAll[ idvert, {x___, p_.*id[z_,w_], v___, p_.*id[z_,w_], y___}->{x, p*id[z,w], v, -p*id[z,w], y}];
+      idvert = ReplaceAll[ idvert, {x___, p_.*id[z_,w_], v___, p_.*id[z_,w_], y___}->{x, p*id[w,z], v, -p*id[z,w], y}];
 
-      Print["***",idvert];
+      Print["*** " , idvert];
 
+      (*ad albero è più facile determinarli precisi, a loop meglio generare tutti e escludere poi*)
       If[loop === {},
       idlist = identity[idvert],
-      idlist = identityOneLoop[idvert,loop]
-      ]
+      idlist = identityOneLoop[idvert]
+      ];
 
       (*When the function returns Null, it is because there is an unphysical vertex, furthermore I have to exclude the others*)
       If[idlist===Null || ContainsAny[{{0,0,0},{0,0,0,0}},idlist] || Apply[Plus,idlist,2] =!= Table[0,{i,1,Length[idlist]}],
@@ -119,6 +122,23 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       (*Colour Indices*)
       colIndices = ReplaceAll[vert,{o_,s_} /; Negative[o] -> col[s]];
 
+      (*These are the rules of momentum conservation throughout the graph*)
+      momrules = momentum[momvert,nvert,npt];
+
+      Print["momrules ", momrules];
+
+
+      (*DA QUI DEVE PARTIRE IL MEGA MAPPPPPPP o sotto? stare attento che visogna passare tutto il necessario al map
+      , se posso far calcolare delle cose tipo i momenti suito qui, per non generare delle copie van fatte prima del map ricordati*)
+
+      Print["idlist su cui fare il map ", idlist];
+
+      (*If[loop === {},
+            Return[amplitude[idlist,]
+            Map...
+      ];*)
+
+
       (* 
       This generates a table relative to a single vertex (3 or 4 incoming lines), 
       containing the useful information for every incoming/outgoing line in that vertex,
@@ -135,10 +155,6 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
             
                         ,{i,nvert,-1}];
 
-      (*These are the rules of momentum conservation throughout the graph*)
-      momrules = momentum[momvert,nvert,npt];
-
-      Print["momrules ", momrules];
 
       idrules = identityrules[idvert,idlist];
 
@@ -307,18 +323,15 @@ identity[idvert_] :=
 
 ]; 
 
-identityOneLoop[idvert_,loop_] := Module [ {pos,n,vert,templist,temp,tempino}, (*questo metodo fallirebbe miseramente se avessi più di un loop*)
+identityOneLoop[idvert_] := Module [ {pos,n,vert,templist,temp,tempino}, (*questo metodo fallirebbe miseramente se avessi più di un loop*)
 
       (*loop non serve*)
       Print["i'm in identity one loop"];
-      n = Length[idvert];
-      (*Print[n];
-
-      Print[Apply[g,idvert]];*)
 
       templist = recursion[idvert];
-      (*Print["... 2 print ",templist];*)
+      Print["... 2 print ",templist];
 
+      temp = templist /. {___,{___,l_.*id[x_,y_],___},___} -> l*id[x,y];
 
       While[ MatchQ[temp,templist] =!= True,
       templist = Flatten[Map[recursion,templist],1];
@@ -327,21 +340,20 @@ identityOneLoop[idvert_,loop_] := Module [ {pos,n,vert,templist,temp,tempino}, (
       (*Print["********************** ",MatchQ[temp,templist]];*)
       ];
       
-      Print["lista a multilivelli", templist];
-
+      (*Print["lista a multilivelli", templist];*)
       Print["quante comb ", Length[templist]];
-
-      Print["Check su quante sono buone"];
+(*
+      Print["Check su quante sono buone"];*)
 
       n = Length[idvert];
 
-      Print["firstly " , Apply[Plus,templist,{2}]];
+      (*Print["firstly " , Apply[Plus,templist,{2}]];*)
 
       tempino = Table[0,{i,1,n}];
 
       pos = Position[Apply[Plus,templist,{2}],tempino];
 
-      Print[tempino];
+      (*Print[tempino];*)
 
       Print[pos];
 
@@ -352,6 +364,14 @@ identityOneLoop[idvert_,loop_] := Module [ {pos,n,vert,templist,temp,tempino}, (
       templist = DeleteCases[templist, {___,{0,0,0},___} | {___,{0,0,0,0},___} , 2];
 
       Print[templist]; 
+
+      If[templist==={}, 
+            Return[Print["nessuna combinazione possibile!"]],
+            templist
+            ];
+
+      templist
+
 
       (*NOTA: Potrebbero esserci altri check, controlla tutto, inoltre devi restituire templist,
       inoltre nel main se la lista ritorna vuota, manda in vertici non fisici immediatamente, se no devo mettere if {} return [0], qui direttamente*)
@@ -450,7 +470,7 @@ vertex4scalarQED[q_List, id_List, mi_List, col_List] := Module [ {posf},
 
 ];
 
-amplitudes[graph_List, iden_List] := Module[ {temp,ma,n},
+Ward[graph_List, iden_List] := Module[ {temp,ma,n},
 
       n = Length[iden];
 

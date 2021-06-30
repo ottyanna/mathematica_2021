@@ -30,7 +30,7 @@ generagrafiOneLoop[n_ ] := Module[ {temp},
 				   ++i;
 				   ];
 
-				listagrafi=DeleteCases[listagrafi, {x___, {-1, -1}, y___} /; Count[{x, {-1, -1}, y}, -1, 2] === 3];
+				(*listagrafi=DeleteCases[listagrafi, {x___, {-1, -1}, y___} /; Count[{x, {-1, -1}, y}, -1, 2] === 3];*)
                               
 				listagrafi
 			    ];
