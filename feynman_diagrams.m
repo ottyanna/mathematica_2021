@@ -15,9 +15,8 @@ setting the values of the unknowns through conservation laws.
 ----
 *)
 
-write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,momvert,momrules,vertices,
-                        colIndices,lorIndices,listp,idvert,idrules,idlist,
-                          rulestemp,rulesQED,rulesQCD,chargetemp,rule,loop,kl},
+write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momrules,
+                        colIndices,lorIndices,listp,listpid,idvert,idlist,chargetemp,rule,loop,kl},
 
       Print["*************"];
       Print["grafo = ", graph];
@@ -32,10 +31,9 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
 
       (*One Loop*)
 
-
-
       (*This generates the list of all propagators*)
       listp = DeleteCases[graph,{i_,_} /; Positive[i]];
+      listpid = listp /. {{x_,y_},{x_,y_}}-> {{x,y},{y,x}}; (*nella funzione identità a un loop avevo un prob con {-1,-2},{-1,-2}, veniva stesso propagatore*)
       prop = Apply[P,listp,2];
 
       (*This verifies that the overall charge is conserved*)
@@ -63,7 +61,7 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       momvert = ReplaceRepeated[momvert,{j_,m_} /; j==m -> k[m]];
       momvert= ReplaceAll[ momvert, {x___,k[z_],y___}->{x, -k[z], k[z], y}];
 
-      Print["momvert ",momvert];
+      (*Print["momvert ",momvert];*)
 
       (*one loop on one line vertice 3*)
       momvert= ReplaceAll[ momvert, {x___,l_.*p[z_,w_],y___,l_.*p[z_,w_],q___}->{x, -l*k[z], y,l*p[z,w],q}];
@@ -97,7 +95,7 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       idvert = ReplaceAll[ idvert, {x___,{z_,z_},y___}->{x, -id[z,z], id[z,z], y}]; (*va sistemato tutto dopo prima per gestire una lista...*)
       idvert = ReplaceAll[ idvert, {x___, p_.*id[z_,w_], v___, p_.*id[z_,w_], y___}->{x, p*id[w,z], v, -p*id[z,w], y}];
 
-      Print["*** " , idvert];
+      (*Print["*** " , idvert];*)
 
       (*ad albero è più facile determinarli precisi, a loop meglio generare tutti e escludere poi*)
       If[loop === {},
@@ -105,12 +103,22 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       idlist = identityOneLoop[idvert]
       ];
 
+      If[idlist === 0, (*c'è un'ambiguità ad albero, passo alla generazione di tutte le comb possibili*) 
+      
+        idlist = identityOneLoop[idvert],
+
+        idlist
+        
+        ];
+
       (*When the function returns Null, it is because there is an unphysical vertex, furthermore I have to exclude the others*)
       If[idlist===Null || ContainsAny[{{0,0,0},{0,0,0,0}},idlist] || Apply[Plus,idlist,2] =!= Table[0,{i,1,Length[idlist]}],
       
             Print["Impossibile procedere! Vertici non fisici!"];
 
-            Return[0];
+            Return[0],
+
+            idlist
 
       ];
 
@@ -125,22 +133,18 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       (*These are the rules of momentum conservation throughout the graph*)
       momrules = momentum[momvert,nvert,npt];
 
-      Print["momrules ", momrules];
+      (*Print["momrules ", momrules];*)
 
-
-      (*DA QUI DEVE PARTIRE IL MEGA MAPPPPPPP o sotto? stare attento che visogna passare tutto il necessario al map
-      , se posso far calcolare delle cose tipo i momenti suito qui, per non generare delle copie van fatte prima del map ricordati*)
-
-      Print["idlist su cui fare il map ", idlist];
+      (*Print["idlist su cui fare il map ", idlist];*)
 
       If[loop === {},
-            Return[amplitude[idlist,vert,nvert,momvert, lorIndices,colIndices,idvert,prop,listp,momrules]], 
-            Return[amplitude[#,vert,nvert,momvert, lorIndices,colIndices,idvert,prop,listp,momrules]&/@idlist]
+            Return[amplitude[idlist,vert,nvert,momvert, lorIndices,colIndices,idvert,prop,listp,listpid,momrules]], 
+            Return[amplitude[#,vert,nvert,momvert, lorIndices,colIndices,idvert,prop,listp,listpid,momrules]&/@idlist]
       ];
 
 ];
 
-amplitude[idlist_,vert_,nvert_,momvert_, lorIndices_,colIndices_,idvert_,prop_,listp_,momrules_] := 
+amplitude[idlist_,vert_,nvert_,momvert_, lorIndices_,colIndices_,idvert_,prop_,listp_,listpid_,momrules_] := 
             Module[ {vertices,idrules,propagators,rulestemp,temp,rulesQED},
 
 
@@ -163,10 +167,11 @@ amplitude[idlist_,vert_,nvert_,momvert_, lorIndices_,colIndices_,idvert_,prop_,l
 
       idrules = identityrules[idvert,idlist];
 
+      Print[idrules];
       
       propagators = Table[
                   
-            Apply[prop[[i]],{Apply[p,listp[[i]]],Apply[id,listp[[i]]],Map[mi,listp[[i]]],Map[col,listp[[i]]]}]
+            Apply[prop[[i]],{Apply[p,listp[[i]]],Apply[id,listpid[[i]]],Map[mi,listp[[i]]],Map[col,listp[[i]]]}]
             
       ,{i,1,Length[listp]}];
       
@@ -277,7 +282,9 @@ identity[idvert_] :=
 
                         (*ELSE: id4verttemp is empty, so there are more options*)
 
-                        Print["ambiguit\[AGrave]"] 
+                        Print["ambiguit\[AGrave]"];
+
+                        Return[0] 
 
                         (*NOTA: per avere un vertice come lambda*phi^4 (e-e+->e-e+, 
                         genero lista mettendo una graffa extra come nel solve[] e poi su identity, qui nel vertice a 4 metto map[identity,idverttemp])*)
@@ -301,11 +308,11 @@ identity[idvert_] :=
 
                         Cases[knowns,{-1,-1}]=!={},
 
-                        Return[Print["vertice a 3 con due e-!Forse 2*e- vertex!"]],
+                        Return[Print["vertice a 3 con due e-!"]],
 
                         Cases[knowns,{1,1}]=!={},
 
-                        Return[Print["vertice a 3 con due e+!Forse 2*e+ vertex!"]]
+                        Return[Print["vertice a 3 con due e+!"]]
 
                   ];
 
@@ -331,11 +338,10 @@ identity[idvert_] :=
 
 identityOneLoop[idvert_] := Module [ {pos,n,vert,templist,temp,tempino}, (*questo metodo fallirebbe miseramente se avessi più di un loop*)
 
-      (*loop non serve*)
-      Print["i'm in identity one loop"];
+      (*Print["i'm in identity one loop"];*)
 
       templist = recursion[idvert];
-      Print["... 2 print ",templist];
+      (*Print["... 2 print ",templist];*)
 
       temp = templist /. {___,{___,l_.*id[x_,y_],___},___} -> l*id[x,y];
 
@@ -347,7 +353,7 @@ identityOneLoop[idvert_] := Module [ {pos,n,vert,templist,temp,tempino}, (*quest
       ];
       
       (*Print["lista a multilivelli", templist];*)
-      Print["quante comb ", Length[templist]];
+      (*Print["quante comb ", Length[templist]];*)
 (*
       Print["Check su quante sono buone"];*)
 
@@ -361,15 +367,15 @@ identityOneLoop[idvert_] := Module [ {pos,n,vert,templist,temp,tempino}, (*quest
 
       (*Print[tempino];*)
 
-      Print[pos];
+      (*Print[pos];*)
 
       templist = Extract[templist,pos];
 
-      Print[templist];
+      (*Print[templist];*)
 
       templist = DeleteCases[templist, {___,{0,0,0},___} | {___,{0,0,0,0},___} , 2];
 
-      Print[templist]; 
+      (*Print[templist];*) 
 
       If[templist==={}, 
             Return[Print["nessuna combinazione possibile!"]],
@@ -377,10 +383,6 @@ identityOneLoop[idvert_] := Module [ {pos,n,vert,templist,temp,tempino}, (*quest
             ];
 
       templist
-
-
-      (*NOTA: Potrebbero esserci altri check, controlla tutto, inoltre devi restituire templist,
-      inoltre nel main se la lista ritorna vuota, manda in vertici non fisici immediatamente, se no devo mettere if {} return [0], qui direttamente*)
 
 ];
 
