@@ -110,7 +110,7 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       
             Print["Impossibile procedere! Vertici non fisici!"];
 
-            (*Return[0];*)
+            Return[0];
 
       ];
 
@@ -133,10 +133,15 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
 
       Print["idlist su cui fare il map ", idlist];
 
-      (*If[loop === {},
-            Return[amplitude[idlist,]
-            Map...
-      ];*)
+      If[loop === {},
+            Return[amplitude[idlist,vert,nvert,momvert, lorIndices,colIndices,idvert,prop,listp,momrules]], 
+            Return[amplitude[#,vert,nvert,momvert, lorIndices,colIndices,idvert,prop,listp,momrules]&/@idlist]
+      ];
+
+];
+
+amplitude[idlist_,vert_,nvert_,momvert_, lorIndices_,colIndices_,idvert_,prop_,listp_,momrules_] := 
+            Module[ {vertices,idrules,propagators,rulestemp,temp,rulesQED},
 
 
       (* 
@@ -181,6 +186,7 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,propagators,
       Print ["M = ",temp //. sub];
 
       temp //. sub
+
 
 ];
 
@@ -470,7 +476,7 @@ vertex4scalarQED[q_List, id_List, mi_List, col_List] := Module [ {posf},
 
 ];
 
-Ward[graph_List, iden_List] := Module[ {temp,ma,n},
+Squaredamplitude[graph_List, iden_List] := Module[ {temp,ma,n},
 
       n = Length[iden];
 
