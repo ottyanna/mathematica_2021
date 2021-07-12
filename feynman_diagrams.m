@@ -20,6 +20,7 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momr
 
       Print["*************"];
       Print["grafo = ", graph];
+      Print["identità particelle = ", list];
 
       (*This identifies the number of external lines and vertices*)
       indices = Flatten[graph];
@@ -167,7 +168,7 @@ amplitude[idlist_,vert_,nvert_,momvert_, lorIndices_,colIndices_,idvert_,prop_,l
 
       idrules = identityrules[idvert,idlist];
 
-      Print[idrules];
+      (*Print[idrules];*)
       
       propagators = Table[
                   
@@ -492,5 +493,48 @@ Squaredamplitude[graph_List, iden_List] := Module[ {temp,ma,n},
       ma = ma * SP[{mi[posf[[2]][[1]]]},epsilon[posf[[2]][[1]]]]*SP[{mi[posf[[1]][[1]]]},epsilon[posf[[1]][[1]]]];
 
       ma
+
+];
+
+WardIdentity[graph_List, iden_List] := Module[ {temp,ma,n},
+
+      n = Length[iden];
+
+      posf = Position[iden,0];
+      pose = Position[iden,1];
+
+      ma = write[#,iden]&/@graph;
+
+      ma = ma * SP[{mi[posf[[2]][[1]]]},epsilon[posf[[2]][[1]]]]*SP[{mi[posf[[1]][[1]]]},epsilon[posf[[1]][[1]]]];
+
+      ma = ma //. sub;
+
+      Print[ma];
+
+      ma = ma /. SP[epsilon[a_],b___+_.*p[a_]+c___] -> SP[p[a],b+c];
+
+      Print[ma];
+
+      (*per costruzione credo sia sempre il primo a essere quello che compare nel propagatore*)
+
+      ma = ma /. -m^2+(p[c_]+p[b_])^2 -> 2*SP[p[c],p[b]]; (*per costruzione del fatto che hp fotoni*)
+
+      Print[ma];
+
+      ma = ma /. SP[w_.*o_,y_.*u_] -> w*y*SP[o,u];
+
+      Print[ma];
+
+      ma = ma /. {l_.*SP[epsilon[n_],k___],j___,o_.*SP[epsilon[n_],epsilon[m_]]}->{l*SP[epsilon[n],k],j,o*SP[epsilon[n],p[m]]};
+
+      Print[ma];
+
+      ma = Apply[Plus,ma];
+
+      Print[ma];
+
+      ma = ma //. j_.*SP[epsilon[a_],b_]+k_.*SP[epsilon[a_],c_] -> SP[epsilon[a],j*b+k*c];
+      
+      ma //Simplify
 
 ];
