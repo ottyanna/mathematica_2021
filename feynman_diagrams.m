@@ -95,7 +95,7 @@ If the amplitude for all graphs with fixed n external fields is neeeded the tota
 *)
 
 write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momrules,
-                        colIndices,lorIndices,listp,listpid,idvert,idlist,chargetemp,rule,loop,kl,ambiguity},
+                        colIndices,lorIndices,listp,listploop12,idvert,idlist,chargetemp,rule,loop,kl,ambiguity},
 
       Print["*************"];
       Print["grafo = ", graph];
@@ -106,16 +106,25 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momr
       npt = Max[ indices];
 	nvert = Min[ indices];
 
+      (*checks if everything in input is ok*)
+      checksonidenities[ide,npt];
+
       (*This generates a list of points connected to every single vertex*)
       vert = Table[Cases[graph,{x___,i,y___}->{i,x + y}],{i,nvert,-1}];
+      (*to take into account that the {-1,-1} appears just once*)
+      vert = ReplaceAll[vert, {k_,k_} -> supp[{k,k},{k,k}]]; 
+
+      Print[vert];
 
       (*This generates the list of all propagators*)
       listp = DeleteCases[graph,{i_,_} /; Positive[i]];
-      (*This line below works ONLY in one loop case, to take account for {-1,-2},{-1,-2} that would generate the same name propagator*)
-      listpid = listp /. {{x_,y_},{x_,y_}}-> {{x,y},{y,x}}; (*nella funzione identità a un loop avevo un prob con {-1,-2},{-1,-2}, veniva stesso propagatore*)
+      Print[listp];
+      (*This line below works ONLY in one loop case, to take account for {-1,-2},{-1,-2} that would generate the "same name" line, 
+      but can be actually a different field, so it needs a different name*)
+      listploop12 = listp /. {u___,{x_,y_},{x_,y_},w___} -> {u,{x,y},{y,x},w}; (*nella funzione identità a un loop avevo un prob con {-1,-2},{-1,-2}, veniva stesso propagatore*)
+      Print[listploop12];
       prop = Apply[P,listp,2];
 
-      checksonidenities[ide,npt];
 
       (*This is done to use the values of the input identities*)
       rule=Table[id[i]->ide[[i]],{i,1,npt}];
@@ -131,30 +140,23 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momr
       momvert = ReplaceAll[vert,{k_,l_} /; Positive[l]->p[l]];
       momvert = ReplaceRepeated[momvert,{j_,m_} /; Negative[m] && m<j -> -p[j,m]];
       momvert = ReplaceRepeated[momvert,{j_,m_} /; Negative[m] && j<m -> p[m,j]];
-
-      (*--------TO BE EXPLAINED BETTER----------*)
-      
-      (*One Loop on one line vertex 4*)
-      momvert = ReplaceRepeated[momvert,{j_,m_} /; j==m -> k[m]];
-      momvert= ReplaceAll[ momvert, {x___,k[z_],y___}->{x, -k[z], k[z], y}];
-
-      (*one loop on one line vertex 3*)
+      (*This gives a "name" to the free momentum that runs in the loop {-1,-1}*)
+      momvert = ReplaceRepeated[momvert, supp[{m_,m_},{m_,m_}] -> supp[-k[m],k[m]]] /. supp->Sequence;
+      (*This gives a "name" to the free momentum that runs in the loop {-1,-2},{-1,-2}, the factor l was brough by the first part*)
       momvert= ReplaceAll[ momvert, {x___,l_.*p[z_,w_],y___,l_.*p[z_,w_],q___}->{x, -l*k[z], y,l*p[z,w],q}];
-
-      (*one general loop*)
+      (*This gives a "name" to the free momentum that runs in one line of one general loop,
+      first the loop must be identified, then one random line the first in the loop is taken to have fixed k momentum*)
       loop = graph;
-      While[Cases[loop, {x_, y_} /; Count[loop, x, 2] < 2 || Count[loop, y, 2] < 2] =!= {}, (*This finds the loop*) 
+      (*This finds the loop, knowing that the "numbers" in the loop appear always at least twice, so it is recursive*)
+      While[Cases[loop, {x_, y_} /; Count[loop, x, 2] < 2 || Count[loop, y, 2] < 2] =!= {}, 
             loop = DeleteCases[loop, {x_, y_} /; Count[loop, x, 2] < 2 || Count[loop, y, 2] < 2]
       ];
-
-      If[loop =!= {} && loop =!= {{-1,-2},{-1,-2}}, (*it was ContainsNone[loop,{{-1,-2}}]*) (*serve sistemarlo per g4*)
-            Print[loop];
+      If[loop =!= {} && loop =!= {{-1,-2},{-1,-2}} && loop =!= {{-1,-1}},
             kl = loop[[1]] /. {l_,s_} -> p[l,s];
             momvert = momvert /. kl -> -k,
             loop  
       ];
 
-      (*Print[momvert];*)
 
       (*
       This generates the list of particle identities
@@ -162,30 +164,30 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momr
       idvert = ReplaceAll[vert,{k_,l_} /; Positive[l]->id[l]] /. rule;
       idvert = ReplaceRepeated[idvert,{j_,m_} /; Negative[m] && m<j -> -id[j,m]];
       idvert = ReplaceRepeated[idvert,{j_,m_} /; Negative[m] && j<m -> id[m,j]];
-
-      (*Print["....",idvert];*)
- 
-
-      (*One Loop on one line*)
-      idvert = ReplaceAll[ idvert, {x___,{z_,z_},y___}->{x, -id[z,z], id[z,z], y}]; (*va sistemato tutto dopo prima per gestire una lista...*)
+      (*This gives a "name" to the identity in the loop {-1,-1}*)
+      idvert = ReplaceAll[ idvert, supp[{z_,z_},{z_,z_}] ->supp[-id[z,z], id[z,z]]] /. supp -> Sequence;
+      (*This corrects the sign convention in the loop {-1,-2},{-1,-2}*)
       idvert = ReplaceAll[ idvert, {x___, p_.*id[z_,w_], v___, p_.*id[z_,w_], y___}->{x, p*id[w,z], v, -p*id[z,w], y}];
+
+
+      vert = vert /. supp -> Sequence;
 
 
       (*At tree level there is a high chance that the identities are generable just imposing charge conservation in every vertex,
       with loops it's much trickier, so in order not to miss combinations all combinations need to be generated*)
       If[loop === {},
-      idlist = identity[idvert],
-      idlist = identityOneLoop[idvert]
+            idlist = identity[idvert],
+            idlist = identityOneLoop[idvert]
       ];
 
 
       (*If there is ambiguity at tree level, identity function returns 0, then I have to consider all possible combinations*)
       If[idlist === 0, 
       
-        ambiguity = True;
-        idlist = identityOneLoop[idvert],
+            ambiguity = True;
+            idlist = identityOneLoop[idvert],
 
-        ambiguity = False
+            ambiguity = False
         
         ];
 
@@ -209,20 +211,24 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momr
       (*Colour Indices, useful for a QCD theory case*)
       colIndices = ReplaceAll[vert,{o_,s_} /; Negative[o] -> col[s]];
 
-      (*This generates the rules of momentum conservation throughout the graph*)
-      momrules = momentum[momvert,nvert,npt];
+      (*This generates the rules of momentum conservation throughout the graph, 
+      adding the usual loop cases rules (recalling that the names are "specific" and there could be no ambiguity)*)
+      momrules = Flatten[Join[momentum[momvert,nvert,npt],{p[-2,-1]->-k[-1],p[-1,-1] -> k[-1],kl -> k}]];
+
+      Print[momvert];
+      Print[momrules];
 
 
       (*If it is a tree level diagram and it is fully determined by satisfying charge conservation in every vertex,
       the amplitude can be directly computed, otherwise the function needs to be run over all possible combinations*)
       If[loop === {} && ambiguity === False ,
-            Return[amplitude[idlist,vert,nvert,momvert, lorIndices,colIndices,idvert,prop,listp,listpid,momrules]], 
-            Return[amplitude[#,vert,nvert,momvert, lorIndices,colIndices,idvert,prop,listp,listpid,momrules]&/@idlist]
+            Return[amplitude[idlist,vert,nvert,momvert, lorIndices,colIndices,idvert,prop,listp,listploop12,momrules]], 
+            Return[amplitude[#,vert,nvert,momvert, lorIndices,colIndices,idvert,prop,listp,listploop12,momrules]&/@idlist]
       ] ;
 
 ];
 
-amplitude[idlist_,vert_,nvert_,momvert_, lorIndices_,colIndices_,idvert_,prop_,listp_,listpid_,momrules_] := 
+amplitude[idlist_,vert_,nvert_,momvert_, lorIndices_,colIndices_,idvert_,prop_,listp_,listploop12_,momrules_] := 
             Module[ {vertices,idrules,propagators,rulestemp,temp,rulesQED},
 
 
@@ -245,10 +251,11 @@ amplitude[idlist_,vert_,nvert_,momvert_, lorIndices_,colIndices_,idvert_,prop_,l
       (*This generates the rules for internal line identities*)
       idrules = identityrules[idvert,idlist];
 
+
       (*This generates the same table for vertices in the case of propagators, PAYING ATTENTION TO THE FACT THAT........*)      
       propagators = Table[
                   
-            Apply[prop[[i]],{Apply[p,listp[[i]]],Apply[id,listpid[[i]]],Map[mi,listp[[i]]],Map[col,listp[[i]]]}]
+            Apply[prop[[i]],{Apply[p,listploop12[[i]]],Apply[id,listploop12[[i]]],Map[mi,listp[[i]]],Map[col,listp[[i]]]}]
             
       ,{i,1,Length[listp]}];
       
@@ -424,7 +431,7 @@ identity[idvert_] :=
                   
             ],
 
-            (*when the unknown list is empty it resturns the overall list of all values*) 
+            (*when the unknown list is empty it returns the overall list of all values*) 
             idvert
 
 ]; 
@@ -434,7 +441,6 @@ identity[idvert_] :=
 ----
 This function generates all possible combinations for the vertices, then excluding the unphyisical ones.
 It is used for graphs with one loop.
-NOTA: Funzionerebbe a più di un loop?
 ----
 *)
 
@@ -444,37 +450,19 @@ identityOneLoop[idvert_] := Module [ {pos,n,vert,templist,temp,tempino},
 
       temp = templist /. {___,{___,l_.*id[x_,y_],___},___} -> l*id[x,y];
 
-      While[ MatchQ[temp,templist] =!= True,
-      templist = Flatten[Map[recursion,templist],1];
-      (*Print["lista a multilivelli", templist];*)
-      temp = templist /. {___,{___,l_.*id[x_,y_],___},___} -> l*id[x,y];
-      (*Print["********************** ",MatchQ[temp,templist]];*)
+      While[ MatchQ[temp,templist] =!= True, (*if they are the same, it means there are no more unknowns*)
+            templist = Flatten[Map[recursion,templist],1];
+            temp = templist /. {___,{___,l_.*id[x_,y_],___},___} -> l*id[x,y];
       ];
       
-      (*Print["lista a multilivelli", templist];*)
-      (*Print["quante comb ", Length[templist]];*)
-(*
-      Print["Check su quante sono buone"];*)
-
       n = Length[idvert];
-
-      (*Print["firstly " , Apply[Plus,templist,{2}]];*)
-
       tempino = Table[0,{i,1,n}];
 
+      (*This identifies the position of the combinations that preserve the charge conservation and then extract that combinations*)
       pos = Position[Apply[Plus,templist,{2}],tempino];
-
-      (*Print[tempino];*)
-
-      (*Print[pos];*)
-
       templist = Extract[templist,pos];
-
-      (*Print[templist];*)
-
+      (*This checks for vertices not included in the theory*)
       templist = DeleteCases[templist, {___,{0,0,0},___} | {___,{0,0,0,0},___} , 2];
-
-      (*Print[templist];*) 
 
       If[templist==={}, 
             Return[Print["nessuna combinazione possibile!"]],
@@ -485,14 +473,16 @@ identityOneLoop[idvert_] := Module [ {pos,n,vert,templist,temp,tempino},
 
 ];
 
-recursion[idvert_] := Module[ {temp}, (*credo non funzioni con g2 e g1...*)
+(*
+----
+This function identifies one unknown and generates a list setting all possible values for it
+---- 
+*)
+recursion[idvert_] := Module[ {temp}, 
 
-      (*Print["sto agendo su", idvert];*)
-      temp = idvert /. {___,{___,_.*id[x_,y_],___},___} -> id[x,y]; (*giusto scritto così? prefatt non necessario per simm 1,-1*)
-      (*Print["temp ",temp];*)
+      temp = idvert /. {___,{___,_.*id[x_,y_],___},___} -> id[x,y]; 
 
       templist = idvert /. {{temp -> 0}, {temp -> 1}, {temp -> -1}};
-      (*Print["... 1 print ",templist];*)
 
       templist
 ];
@@ -500,7 +490,7 @@ recursion[idvert_] := Module[ {temp}, (*credo non funzioni con g2 e g1...*)
 
 (*
 ----
-This function generates the list of transformation rules used for the particles' identity within the propagators
+This function generates the list of transformation rules used for the fields' identity within the propagators
 ---- 
 *)
 identityrules [unknowns_, knowns_] := Module[ {pos},
@@ -550,7 +540,7 @@ vertex3scalarQED[q_List, id_List, mi_List, col_List] := Module [ {posf,pose, pos
 vertex4scalarQED[q_List, id_List, mi_List, col_List] := Module [ {posf},
 
 
-      posf = Position[id,0]; (*identifies the position of the two photons in the list arguments*)
+      posf = Position[id,0]; (*identifies the position of the two photons in the identity list*)
 
       If[posf === {},
 
