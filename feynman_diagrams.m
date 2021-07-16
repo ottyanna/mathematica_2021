@@ -2,6 +2,80 @@
 
 (*
 ----
+These functions generate topologically different graphs with fixed number of external lines n.
+They can also generate one loop graphs.
+The variable Oneloop must be set to False as an input value if it is needed a tree level diagram, otherwise it must be set to True. 
+----
+*)
+
+basicgraph = { {1,-1}, {2,-1}, {3,-1} };
+tadpole = { {1,-1}, {-1,-1} };
+
+graphgeneration[n_ , Oneloop_] := Module[ {temp},
+
+			      If[Oneloop === False,
+			      i=3;
+			      graphlist = {basicgraph},
+				(*else*)
+				i=1;
+			      graphlist = {tadpole}
+				];
+
+			    
+			    While[ i<n,
+				   newgraphs3 = Flatten[ Map[ insertion3, graphlist], 1];
+				   newgraphs4 = Flatten[ Map[ insertion4, graphlist], 1];
+				   
+				   graphlist = Join[ newgraphs3, newgraphs4 ];
+				   ++i;
+				   ];
+
+                              graphlist
+			    ];
+
+insertion3[graph_] := Module[{temp},
+			      indices = Flatten[graph];
+			      npt = Max[ indices];
+			      nvert = Min[ indices];
+
+			      newgraphs=Table[ insert3[i,npt+1,nvert-1, graph],
+						{i,1,Length[ graph]}
+						];
+			      newgraphs
+			      ];
+
+insert3[pos_, ext_, int_, graph_] := ReplacePart[ graph,
+ 		           supp[ {ext,int}, {graph[[pos,1]],int}, {graph[[pos,2]], int} ],
+						     pos ] /. supp->Sequence ; 
+
+
+insertion4[graph_] := Module[{temp},
+
+			      indices = Flatten[graph];
+			      npt = Max[ indices];
+			      nvert = Min[ indices];
+
+			      newgraphs=Table[ insert4[i,npt+1, graph],
+						{i,nvert,-1}
+						];
+			      newgraphs = DeleteCases[ newgraphs, {} ];
+			      newgraphs
+
+			      ];
+
+
+
+
+insert4[ vertex_, ext_, graph_] :=  If[ Count[ graph, vertex, 2]===3,
+
+					    Append[ graph, {ext,vertex}],
+
+                                            {}
+
+					   ];
+
+(*
+----
 This defines the rules for the scalar product and the index contraction
 ----
 *)
@@ -10,13 +84,18 @@ sub = {SP[a__, {b_}] SP[c__, {b_}] :> SP[a, c], SP[b_, {c_}]^2 :> SP[b, b], SP[{
 
 (*
 ----
-This function outputs the graph in readable format, highlighting propagators P and vertices V and
-setting the values of the unknowns through conservation laws.
+This function prints the graph in readable format, highlighting propagators P and vertices V and
+setting the values of the unknowns through conservation laws, 
+then outputs all possible Feynman amplitudes for that particular graph, using Feynman rules for scalar QED plus a lambda*phi^4 interaction.
+The inputs need to be in the form of one graph with n external fields (computed with graphgeneration) and a list of field identities 
+in the form {charge of first field, ... ,charge of n_th field}, recalling that, conventionally, 
+the complex field can have charge 1 or -1, and the electromagnetic field has charge of 0.
+If the amplitude for all graphs with fixed n external fields is neeeded the totalamplitude function should be used.
 ----
 *)
 
 write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momrules,
-                        colIndices,lorIndices,listp,listpid,idvert,idlist,chargetemp,rule,loop,kl},
+                        colIndices,lorIndices,listp,listpid,idvert,idlist,chargetemp,rule,loop,kl,ambiguity},
 
       Print["*************"];
       Print["grafo = ", graph];
@@ -30,18 +109,13 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momr
       (*This generates a list of points connected to every single vertex*)
       vert = Table[Cases[graph,{x___,i,y___}->{i,x + y}],{i,nvert,-1}];
 
-      (*One Loop*)
-
       (*This generates the list of all propagators*)
       listp = DeleteCases[graph,{i_,_} /; Positive[i]];
+      (*This line below works ONLY in one loop case, to take account for {-1,-2},{-1,-2} that would generate the same name propagator*)
       listpid = listp /. {{x_,y_},{x_,y_}}-> {{x,y},{y,x}}; (*nella funzione identità a un loop avevo un prob con {-1,-2},{-1,-2}, veniva stesso propagatore*)
       prop = Apply[P,listp,2];
 
-      (*This verifies that the overall charge is conserved*)
-            If[chargetemp != 0,
-                  Return[Print["carica non si conserva"]],
-            chargetemp
-            ];
+      checksonidenities[ide,npt];
 
       (*This is done to use the values of the input identities*)
       rule=Table[id[i]->ide[[i]],{i,1,npt}];
@@ -58,13 +132,13 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momr
       momvert = ReplaceRepeated[momvert,{j_,m_} /; Negative[m] && m<j -> -p[j,m]];
       momvert = ReplaceRepeated[momvert,{j_,m_} /; Negative[m] && j<m -> p[m,j]];
 
-      (*One Loop on one line vertice 4*)
+      (*--------TO BE EXPLAINED BETTER----------*)
+      
+      (*One Loop on one line vertex 4*)
       momvert = ReplaceRepeated[momvert,{j_,m_} /; j==m -> k[m]];
       momvert= ReplaceAll[ momvert, {x___,k[z_],y___}->{x, -k[z], k[z], y}];
 
-      (*Print["momvert ",momvert];*)
-
-      (*one loop on one line vertice 3*)
+      (*one loop on one line vertex 3*)
       momvert= ReplaceAll[ momvert, {x___,l_.*p[z_,w_],y___,l_.*p[z_,w_],q___}->{x, -l*k[z], y,l*p[z,w],q}];
 
       (*one general loop*)
@@ -96,26 +170,31 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momr
       idvert = ReplaceAll[ idvert, {x___,{z_,z_},y___}->{x, -id[z,z], id[z,z], y}]; (*va sistemato tutto dopo prima per gestire una lista...*)
       idvert = ReplaceAll[ idvert, {x___, p_.*id[z_,w_], v___, p_.*id[z_,w_], y___}->{x, p*id[w,z], v, -p*id[z,w], y}];
 
-      (*Print["*** " , idvert];*)
 
-      (*ad albero è più facile determinarli precisi, a loop meglio generare tutti e escludere poi*)
+      (*At tree level there is a high chance that the identities are generable just imposing charge conservation in every vertex,
+      with loops it's much trickier, so in order not to miss combinations all combinations need to be generated*)
       If[loop === {},
       idlist = identity[idvert],
       idlist = identityOneLoop[idvert]
       ];
 
-      If[idlist === 0, (*c'è un'ambiguità ad albero, passo alla generazione di tutte le comb possibili*) 
+
+      (*If there is ambiguity at tree level, identity function returns 0, then I have to consider all possible combinations*)
+      If[idlist === 0, 
       
+        ambiguity = True;
         idlist = identityOneLoop[idvert],
 
-        idlist
+        ambiguity = False
         
         ];
 
-      (*When the function returns Null, it is because there is an unphysical vertex, furthermore I have to exclude the others*)
+      (*When the function returns Null, it is because there is an unphysical vertex, 
+      furthermore the function could have genereted some other vertices satisfying the charge conservation 
+      but not the theory interactions, so this case is also checked*)
       If[idlist===Null || ContainsAny[{{0,0,0},{0,0,0,0}},idlist] || Apply[Plus,idlist,2] =!= Table[0,{i,1,Length[idlist]}],
       
-            Print["Impossibile procedere! Vertici non fisici!"];
+            Print["Impossibile procedere! Vertici non inclusi nella teoria!"];
 
             Return[0],
 
@@ -127,21 +206,19 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momr
       (*Lorentz indices*)
       lorIndices = ReplaceAll[vert,{o_,s_} /; Negative[o] -> mi[s]];
 
-
-      (*Colour Indices*)
+      (*Colour Indices, useful for a QCD theory case*)
       colIndices = ReplaceAll[vert,{o_,s_} /; Negative[o] -> col[s]];
 
-      (*These are the rules of momentum conservation throughout the graph*)
+      (*This generates the rules of momentum conservation throughout the graph*)
       momrules = momentum[momvert,nvert,npt];
 
-      (*Print["momrules ", momrules];*)
 
-      (*Print["idlist su cui fare il map ", idlist];*)
-
-      If[loop === {},
+      (*If it is a tree level diagram and it is fully determined by satisfying charge conservation in every vertex,
+      the amplitude can be directly computed, otherwise the function needs to be run over all possible combinations*)
+      If[loop === {} && ambiguity === False ,
             Return[amplitude[idlist,vert,nvert,momvert, lorIndices,colIndices,idvert,prop,listp,listpid,momrules]], 
             Return[amplitude[#,vert,nvert,momvert, lorIndices,colIndices,idvert,prop,listp,listpid,momrules]&/@idlist]
-      ];
+      ] ;
 
 ];
 
@@ -165,11 +242,10 @@ amplitude[idlist_,vert_,nvert_,momvert_, lorIndices_,colIndices_,idvert_,prop_,l
             
                         ,{i,nvert,-1}];
 
-
+      (*This generates the rules for internal line identities*)
       idrules = identityrules[idvert,idlist];
 
-      (*Print[idrules];*)
-      
+      (*This generates the same table for vertices in the case of propagators, PAYING ATTENTION TO THE FACT THAT........*)      
       propagators = Table[
                   
             Apply[prop[[i]],{Apply[p,listp[[i]]],Apply[id,listpid[[i]]],Map[mi,listp[[i]]],Map[col,listp[[i]]]}]
@@ -178,14 +254,15 @@ amplitude[idlist_,vert_,nvert_,momvert_, lorIndices_,colIndices_,idvert_,prop_,l
       
       rulestemp = Flatten[Join[momrules,idrules]];   
           
-      temp = Flatten[Join[vertices,propagators] /.rulestemp];
+      temp = Flatten[Join[vertices,propagators] /. rulestemp];
 
 
       Print["espressione = ",temp];
 
+      (*This applies the Feynman rules for our scalar QED*)
       rulesQED = {V3[_][args__] -> vertex3scalarQED[args],V4[_][args__] -> vertex4scalarQED[args],P[__][args__] -> propagatorscalarQED[args]};
 
-      temp=temp /.rulesQED;
+      temp = temp /. rulesQED;
 
       temp = Apply[Times,temp];
 
@@ -195,6 +272,26 @@ amplitude[idlist_,vert_,nvert_,momvert_, lorIndices_,colIndices_,idvert_,prop_,l
 
 
 ];
+
+checksonidenities[ide_,npt_] := Module[ {chargetemp},
+
+      (*This checks if the number of identities is the same as the external lines*)
+      If[Length[ide] != npt,
+            Return[Print["Il numero delle identità non corrisponde al numero di linee esterne"]],
+      ide
+      ];
+
+      (*This verifies that the overall charge in list is conserved*)
+      chargetemp = Apply[Plus,ide];
+      If[chargetemp != 0,
+            Return[Print["carica non si conserva"]],
+      chargetemp
+      ];
+
+      chargetemp
+
+];
+
 
 (*
 ----
@@ -220,12 +317,12 @@ momentum[momvert_,nvert_,npt_]:= Module [ {temp,unknowns,eqs,globcons,rules},
 
 (*
 ----
-This function identifies the identity of all particles, regarding the direction of the arrow,
-recalling that:
-*-1 stays for electron
-*1 for positron
-*0 for photon,
-that all external lines identities are known and the flow convention is all incoming and the internal lines go from m to l with m>l.
+This function identifies the identity of all fields, recalling that for every vertex the fields are incoming,
+and that:
+*-1 stays for field
+*1 for complex conjugate field
+*0 for electomagnetic field.
+Furthermore the internal lines have a natural direction imposed from m to l with m>l.
 ----
 *)
 
@@ -285,16 +382,11 @@ identity[idvert_] :=
 
                         Print["ambiguit\[AGrave]"];
 
-                        Return[0] 
-
-                        (*NOTA: per avere un vertice come lambda*phi^4 (e-e+->e-e+, 
-                        genero lista mettendo una graffa extra come nel solve[] e poi su identity, qui nel vertice a 4 metto map[identity,idverttemp])*)
-                  
-                        (*succede solo nel vertice a 4 credo, si risolve con il doppio {{opz1},{opz2}} e poi il map*)
+                        Return[0]
 
                   ],
 
-                  (*If the list of three verices was not empty, it uses the same mathod as above for a three line vertex*)
+                  (*If the list of three verices was not empty, it uses the same method as above for a three line vertex*)
 
                   (*
                   **** THREE LINE VERTEX ****
@@ -337,12 +429,18 @@ identity[idvert_] :=
 
 ]; 
 
-identityOneLoop[idvert_] := Module [ {pos,n,vert,templist,temp,tempino}, (*questo metodo fallirebbe miseramente se avessi più di un loop*)
 
-      (*Print["i'm in identity one loop"];*)
+(*
+----
+This function generates all possible combinations for the vertices, then excluding the unphyisical ones.
+It is used for graphs with one loop.
+NOTA: Funzionerebbe a più di un loop?
+----
+*)
+
+identityOneLoop[idvert_] := Module [ {pos,n,vert,templist,temp,tempino},
 
       templist = recursion[idvert];
-      (*Print["... 2 print ",templist];*)
 
       temp = templist /. {___,{___,l_.*id[x_,y_],___},___} -> l*id[x,y];
 
@@ -421,16 +519,17 @@ rules
 
 (*
 ----
-These three functions generate Feynman rules for every propagator and every vertex
+These three functions generate Feynman rules for every propagator and every vertex.
+N.B. This is possible because all lines are taken incoming for every vertex, using the right sign.
 ----
 *)
 propagatorscalarQED[p_,id_,mi_List,col_List] :=
 
-      If[ id=== 0, (*if the propagator is a photon*)
+      If[ id === 0, (*if the propagator is a photon*)
 
             I*SP[{mi[[1]]},{mi[[2]]}]/p^2,
 
-            (*if the propagator is either a p or an e*)
+            (*if the propagator is the complex scalar field*)
 
             I/(p^2-m^2)
 
@@ -443,22 +542,7 @@ vertex3scalarQED[q_List, id_List, mi_List, col_List] := Module [ {posf,pose, pos
       pose = Flatten[Position[id,-1]];
       posp = Flatten[Position[id,1]];
 
-
-      (*Which[pose==={}, (*I have two positrons*)
-
-            I*qe*SP[Part[q,posp[[1]]]+Part[q,posp[[2]]],{Part[mi,posf[[1]]]}],
-
-            posp==={}, (*I have two electrons*)
-
-            I*qe*SP[-Part[q,pose[[1]]]-Part[q,pose[[2]]],{Part[mi,posf[[1]]]}],
-
-            pose=!={} && posp=!={}, (*I have both a positron and an electron*)
-
-            I*qe*SP[-Part[q,pose[[1]]]+Part[q,posp[[1]]],{Part[mi,posf[[1]]]}]
-
-      ]*)
-
-      I*qe*SP[-Part[q,pose[[1]]]+Part[q,posp[[1]]],{Part[mi,posf[[1]]]}] (*Dove i più e dove i meno? dovrebbe bastar solo questo..*)
+      I*qe*SP[-Part[q,pose[[1]]]+Part[q,posp[[1]]],{Part[mi,posf[[1]]]}]
 
 ];
 
@@ -479,22 +563,47 @@ vertex4scalarQED[q_List, id_List, mi_List, col_List] := Module [ {posf},
 
 ];
 
-Squaredamplitude[graph_List, iden_List] := Module[ {temp,ma,n},
+(*
+----
+This function takes into account all the possible graphs, so contibutions to the Feynman amplitude, especially at tree level,
+with a fixed number n of external lines.
+N.B. To take into account also the loops, it would take a lot of computation time. It is obviously possible.
+----
+*)
 
-      n = Length[iden];
+totalamplitude[graph_List, iden_List] := Module[ {temp,ma,check},
+
+      indices = Flatten[graph];
+      npt = Max[indices];
 
       Print["identities = ", iden];
 
       posf = Position[iden,0];
-      pose = Position[iden,1];
+
+      check = checksonidenities[iden,npt];
+       If[check === Null, 
+            Return[0], 
+            iden];
 
       ma = write[#,iden]&/@graph;
 
       ma = ma * SP[{mi[posf[[2]][[1]]]},epsilon[posf[[2]][[1]]]]*SP[{mi[posf[[1]][[1]]]},epsilon[posf[[1]][[1]]]];
 
+      ma = Apply[Plus,ma];
+
+      Print["++++++++++++++++++++++++++++++++++++++"];
+
+      Print["ampiezza totale con tutti i contributi ad albero:"];
+
       ma
 
 ];
+
+(*
+----
+This function verifies the Ward identity at tree level with four external lines. It's still incomplete.
+----
+*)
 
 WardIdentity[graph_List, iden_List] := Module[ {temp,ma,n},
 
@@ -535,6 +644,14 @@ WardIdentity[graph_List, iden_List] := Module[ {temp,ma,n},
 
       ma = ma //. j_.*SP[epsilon[a_],b_]+k_.*SP[epsilon[a_],c_] -> SP[epsilon[a],j*b+k*c];
       
-      ma //Simplify
+      ma = ma //Simplify;
+
+      (*If[MatchQ[ma,SP[0,epsilon[a_]]]===False,
+      
+      ];*)
+
+      ma
+
+
 
 ];
