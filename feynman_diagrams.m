@@ -81,6 +81,10 @@ This defines the rules for the scalar product and the index contraction
 *)
 SetAttributes[SP, Orderless];
 sub = {SP[a__, {b_}] SP[c__, {b_}] :> SP[a, c], SP[b_, {c_}]^2 :> SP[b, b], SP[{a_},{b_}]*SP[d__,{a_}] :> SP[d,{b}]};
+(*sub1 = {SP[a___,l_.*b__+m_.*c__+k___] :> l*SP[a,b]+m*SP[a,c]+SP[a,k]};*)
+sub11 = {SP[a__,b__+c__+k___] :> SP[a,b]+SP[a,c+k]};
+sub12 = {SP[k__,j_*p[c_]] :> j*SP[k,p[c]]};
+sub2 = {l_.*SP[a__,b_]+m_.*SP[a__,c_] :> SP[a,l*b+m*c]}
 
 (*
 ----
@@ -584,7 +588,7 @@ totalamplitude[graph_List, iden_List] := Module[ {temp,ma,check},
 
       Print["++++++++++++++++++++++++++++++++++++++"];
 
-      Print["ampiezza totale con tutti i contributi ad albero:"];
+      Print["ampiezza totale con tutti i contributi ad albero:", ma];
 
       ma
 
@@ -596,7 +600,114 @@ This function verifies the Ward identity at tree level with four external lines.
 ----
 *)
 
-WardIdentity[graph_List, iden_List] := Module[ {temp,ma,n},
+WardIdentity[graph_List, iden_List, photon_] := Module[ {temp,ma,n, rules, globcons, rule},
+
+pose = Position[iden,1 | -1];
+posf = Position[iden,0];
+
+cons4imp = Table[ SP[p[pose[[i]][[1]]],p[pose[[i]][[1]]]] -> m^2 ,{i,1,Length[pose]}];
+
+cons4impf = Table[ SP[p[posf[[i]][[1]]],p[posf[[i]][[1]]]] -> 0 ,{i,1,Length[posf]}];
+
+Print[cons4impf];
+
+rules = Join[cons4imp,cons4impf];
+
+Print[rules];
+
+rule = {(p[a_]+p[b_])^2 -> SP[p[a],p[a]]+ SP[p[b],p[b]] + 2*SP[p[a],p[b]]};
+
+Print[cons4imp];
+
+If[ iden[[photon]] =!= 0,
+
+      Return[Print["In input serve la posizione di un fotone!"]],
+
+      ma = Expand[totalamplitude[graph,iden]*SP[{mi[photon]},p[photon]]]
+
+];
+
+Print[rule];
+
+ma = ReplaceAll[ma,rule];
+
+
+Print[ma];
+
+ma = ReplaceAll[ma,rules];
+
+Print[ma];
+
+ma = ma //. sub;
+
+ma = ma //. rules;
+
+ma = Together[Simplify[ma]];
+
+Print[ma];
+
+globcons = {p[1] -> Sum[-p[i],{i,2,Length[iden]}]};
+
+(*ma = ma //. globcons;*)
+
+ma = ma //. sub11;
+
+
+Print[ma];
+
+ma = ReplaceRepeated[ma,sub12];
+
+ma = ma //. sub12;
+
+Print[rules];
+
+ma = ma //. rules;
+
+ma = ma //. globcons;
+
+ma = ma //. sub11;
+
+ma = ma //. sub12;
+
+ma = ma //.rules;
+
+ma
+
+];
+
+(*WardIdentity[graph_List, iden_List, photon_] := Module[ {temp,ma,n},
+
+pose = Position[iden,1];
+
+If[ iden[[photon]] =!= 0,
+
+      Return[Print["In input serve la posizione di un fotone!"]],
+
+      ma = Expand[totalamplitude[graph,iden]*SP[{mi[photon]},p[photon]]]
+
+];
+
+ma = ma //. sub;
+
+
+
+ma = ma //. sub1;
+
+rules = {SP[p[photon],p[photon]] -> 0, (p[a_]+p[b_])^2 - m^2 -> 2*SP[p[a],p[b]] };
+
+Print[ma//.rules];
+
+ma = Simplify[Together[ma //. rules ]];
+
+ma = ma //. sub2;
+
+ma
+
+
+];*)
+
+
+(*WardIdentity[graph_List, iden_List] := Module[ {temp,ma,n},
 
       n = Length[iden];
 
@@ -645,4 +756,4 @@ WardIdentity[graph_List, iden_List] := Module[ {temp,ma,n},
 
 
 
-];
+];*)
