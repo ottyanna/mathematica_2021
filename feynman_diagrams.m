@@ -94,12 +94,12 @@ If the amplitude for all graphs with fixed n external fields is neeeded the tota
 ----
 *)
 
-write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momrules,
+write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momrules, support,
                         colIndices,lorIndices,listp,listploop12,idvert,idlist,chargetemp,rule,loop,kl,ambiguity},
 
       Print["*************"];
       Print["grafo = ", graph];
-      Print["identità particelle = ", list];
+      Print["identità particelle = ", ide];
 
       (*This identifies the number of external lines and vertices*)
       indices = Flatten[graph];
@@ -114,15 +114,15 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momr
       (*to take into account that the {-1,-1} appears just once*)
       vert = ReplaceAll[vert, {k_,k_} -> supp[{k,k},{k,k}]]; 
 
-      Print[vert];
+      (*Print[vert];*)
 
       (*This generates the list of all propagators*)
       listp = DeleteCases[graph,{i_,_} /; Positive[i]];
-      Print[listp];
+      (*Print[listp];*)
       (*This line below works ONLY in one loop case, to take account for {-1,-2},{-1,-2} that would generate the "same name" line, 
       but can be actually a different field, so it needs a different name*)
-      listploop12 = listp /. {u___,{x_,y_},{x_,y_},w___} -> {u,{x,y},{y,x},w}; (*nella funzione identità a un loop avevo un prob con {-1,-2},{-1,-2}, veniva stesso propagatore*)
-      Print[listploop12];
+      listploop12 = listp /. {u___,{x_,y_},{x_,y_},w___} -> {u,{x,y},{y,x},w};
+      (*Print[listploop12];*)
       prop = Apply[P,listp,2];
 
 
@@ -142,8 +142,8 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momr
       momvert = ReplaceRepeated[momvert,{j_,m_} /; Negative[m] && j<m -> p[m,j]];
       (*This gives a "name" to the free momentum that runs in the loop {-1,-1}*)
       momvert = ReplaceRepeated[momvert, supp[{m_,m_},{m_,m_}] -> supp[-k[m],k[m]]] /. supp->Sequence;
-      (*This gives a "name" to the free momentum that runs in the loop {-1,-2},{-1,-2}, the factor l was brough by the first part*)
-      momvert= ReplaceAll[ momvert, {x___,l_.*p[z_,w_],y___,l_.*p[z_,w_],q___}->{x, -l*k[z], y,l*p[z,w],q}];
+      (*This gives a "name" to the free momentum that runs in the loop {z_,w_},{z_,w_}, the factor l was brough by the first part*)
+      momvert = ReplaceAll[ momvert, {x___,l_.*p[z_,w_],y___,l_.*p[z_,w_],q___}->{x, -l*k[z], y,l*p[z,w],q}];
       (*This gives a "name" to the free momentum that runs in one line of one general loop,
       first the loop must be identified, then one random line the first in the loop is taken to have fixed k momentum*)
       loop = graph;
@@ -151,12 +151,17 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momr
       While[Cases[loop, {x_, y_} /; Count[loop, x, 2] < 2 || Count[loop, y, 2] < 2] =!= {}, 
             loop = DeleteCases[loop, {x_, y_} /; Count[loop, x, 2] < 2 || Count[loop, y, 2] < 2]
       ];
-      If[loop =!= {} && loop =!= {{-1,-2},{-1,-2}} && loop =!= {{-1,-1}},
-            kl = loop[[1]] /. {l_,s_} -> p[l,s];
+      If[loop =!= {} && MatchQ[loop,{{u_,w_},{u_,w_}}]===False && loop =!= {{-1,-1}},
+            kl = loop[[1]] /. {l_,s_}  -> p[l,s];
             momvert = momvert /. kl -> -k,
             loop  
       ];
 
+      support = loop /. {{u_,w_},{u_,w_}} -> p[w,u];
+
+      (*Print[support];
+      Print[loop];
+      Print[momvert];*)
 
       (*
       This generates the list of particle identities
@@ -212,11 +217,11 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momr
       colIndices = ReplaceAll[vert,{o_,s_} /; Negative[o] -> col[s]];
 
       (*This generates the rules of momentum conservation throughout the graph, 
-      adding the usual loop cases rules (recalling that the names are "specific" and there could be no ambiguity)*)
-      momrules = Flatten[Join[momentum[momvert,nvert,npt],{p[-2,-1]->-k[-1],p[-1,-1] -> k[-1],kl -> k}]];
+      adding the usual loop cases rules for the propagator expression (recalling that the names are "specific" and there could be no ambiguity)*)
+      momrules = Flatten[Join[momentum[momvert,nvert,npt],{support->-k[-1], p[-1,-1] -> k[-1], kl -> -k}]];
 
-      Print[momvert];
-      Print[momrules];
+      (*Print[momvert];
+      Print[momrules];*)
 
 
       (*If it is a tree level diagram and it is fully determined by satisfying charge conservation in every vertex,
@@ -568,16 +573,12 @@ totalamplitude[graph_List, iden_List] := Module[ {temp,ma,check},
 
       Print["identities = ", iden];
 
-      posf = Position[iden,0];
-
       check = checksonidenities[iden,npt];
        If[check === Null, 
             Return[0], 
             iden];
 
       ma = write[#,iden]&/@graph;
-
-      ma = ma * SP[{mi[posf[[2]][[1]]]},epsilon[posf[[2]][[1]]]]*SP[{mi[posf[[1]][[1]]]},epsilon[posf[[1]][[1]]]];
 
       ma = Apply[Plus,ma];
 
