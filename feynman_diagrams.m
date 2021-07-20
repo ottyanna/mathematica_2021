@@ -513,7 +513,7 @@ propagatorscalarQED[p_,id_,mi_List,col_List] :=
 
       If[ id === 0, (*if the propagator is a photon*)
 
-            I*SP[{mi[[1]]},{mi[[2]]}]/p^2,
+            -I*SP[{mi[[1]]},{mi[[2]]}]/p^2,
 
             (*if the propagator is the complex scalar field*)
 
@@ -601,6 +601,7 @@ If[ iden[[photon]] =!= 0,
 
 ];
 
+(*on shell constraint*)
 cons4impe = Table[ SP[p[pose[[i]][[1]]],p[pose[[i]][[1]]]] :> m^2 ,{i,1,Length[pose]}];
 
 cons4impf = Table[ SP[p[posf[[i]][[1]]],p[posf[[i]][[1]]]] :> 0 ,{i,1,Length[posf]}];
@@ -609,8 +610,10 @@ rules = Join[cons4impe,cons4impf];
 
 rule = {(a__+b__)^2 -> SP[a,a]+ SP[b,b] + 2*SP[a,b]};
 
+(*global momentum conservation*)
 globcons = {p[n] -> Sum[-p[i],{i,1,n-1}]};
 
+(*This finds the scalars*)
 perm = Permutations[Table[i,{i,1,n-1}],{2}];
 perm = ReplaceRepeated[perm,{x___,{z_,w_},y___,{w_,z_},l___}->{x,y,{z,w},l}];
 perm1 = ReplaceAll[perm,{z_,w_}->z];
@@ -618,12 +621,13 @@ perm2 = ReplaceAll[perm,{z_,w_}->w];
 
 mandel = Table[ SP[p[perm1[[i]]],p[perm2[[i]]]] -> (-t[i]+SP[p[perm1[[i]]],p[perm1[[i]]]]+SP[p[perm2[[i]]],p[perm2[[i]]]])/2 ,{i,1,Length[perm]}];
 
+
 If[n==4,
 
 mandelcons = {t[Length[perm]] -> Sum[-t[i],{i,1,Length[perm]-1}] + Sum[SP[p[l],p[l]],{l,1,n} ]},
 
 mandel 
-(*If there are more than four particles, the program needs the equations to reduce the expression to the minimun number of Lorentz scalars,
+(*TO DO: If there are more than four particles, the program needs the equations to reduce the expression to the minimun number of Lorentz scalars,
 so two for 4 particles, five for 5, eight for 6: 4N - N -4 -6 = 3N - 10 independent variables.
 *)
 ];
