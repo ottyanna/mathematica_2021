@@ -81,7 +81,6 @@ This defines the rules for the scalar product and the index contraction
 *)
 SetAttributes[SP, Orderless];
 sub = {SP[a__, {b_}] SP[c__, {b_}] :> SP[a, c], SP[b_, {c_}]^2 :> SP[b, b], SP[{a_},{b_}]*SP[d__,{a_}] :> SP[d,{b}]};
-(*sub1 = {SP[a___,l_.*b__+m_.*c__+k___] :> l*SP[a,b]+m*SP[a,c]+SP[a,k]};*)
 sub11 = {SP[a__,b__+c__+k___] :> SP[a,b]+SP[a,c+k]};
 sub12 = {SP[k__,j_*p[c_]] :> j*SP[k,p[c]]};
 sub2 = {l_.*SP[a__,b_]+m_.*SP[a__,c_] :> SP[a,l*b+m*c]}
@@ -118,15 +117,11 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momr
       (*to take into account that the {-1,-1} appears just once*)
       vert = ReplaceAll[vert, {k_,k_} -> supp[{k,k},{k,k}]]; 
 
-      (*Print[vert];*)
-
       (*This generates the list of all propagators*)
       listp = DeleteCases[graph,{i_,_} /; Positive[i]];
-      (*Print[listp];*)
       (*This line below works ONLY in one loop case, to take account for {-1,-2},{-1,-2} that would generate the "same name" line, 
       but can be actually a different field, so it needs a different name*)
       listploop12 = listp /. {u___,{x_,y_},{x_,y_},w___} -> {u,{x,y},{y,x},w};
-      (*Print[listploop12];*)
       prop = Apply[P,listp,2];
 
 
@@ -162,10 +157,6 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momr
       ];
 
       support = loop /. {{u_,w_},{u_,w_}} -> p[w,u];
-
-      (*Print[support];
-      Print[loop];
-      Print[momvert];*)
 
       (*
       This generates the list of particle identities
@@ -223,10 +214,6 @@ write[graph_,ide_List]:= Module [ {temp,nvert,indices,npt,vert,prop,momvert,momr
       (*This generates the rules of momentum conservation throughout the graph, 
       adding the usual loop cases rules for the propagator expression (recalling that the names are "specific" and there could be no ambiguity)*)
       momrules = Flatten[Join[momentum[momvert,nvert,npt],{support->-k[-1], p[-1,-1] -> k[-1], kl -> -k}]];
-
-      (*Print[momvert];
-      Print[momrules];*)
-
 
       (*If it is a tree level diagram and it is fully determined by satisfying charge conservation in every vertex,
       the amplitude can be directly computed, otherwise the function needs to be run over all possible combinations*)
@@ -600,24 +587,11 @@ This function verifies the Ward identity at tree level with four external lines.
 ----
 *)
 
-WardIdentity[graph_List, iden_List, photon_] := Module[ {temp,ma,n, rules, globcons, rule},
+WardIdentity[graph_List, iden_List, photon_] := Module[ {temp,ma, n,rules, globcons, rule, cons4impe,cons4impf, pose, posf,perm, perm1, perm2},
 
 pose = Position[iden,1 | -1];
 posf = Position[iden,0];
-
-cons4imp = Table[ SP[p[pose[[i]][[1]]],p[pose[[i]][[1]]]] -> m^2 ,{i,1,Length[pose]}];
-
-cons4impf = Table[ SP[p[posf[[i]][[1]]],p[posf[[i]][[1]]]] -> 0 ,{i,1,Length[posf]}];
-
-Print[cons4impf];
-
-rules = Join[cons4imp,cons4impf];
-
-Print[rules];
-
-rule = {(p[a_]+p[b_])^2 -> SP[p[a],p[a]]+ SP[p[b],p[b]] + 2*SP[p[a],p[b]]};
-
-Print[cons4imp];
+n = Length[iden];
 
 If[ iden[[photon]] =!= 0,
 
@@ -627,133 +601,60 @@ If[ iden[[photon]] =!= 0,
 
 ];
 
-Print[rule];
+cons4impe = Table[ SP[p[pose[[i]][[1]]],p[pose[[i]][[1]]]] :> m^2 ,{i,1,Length[pose]}];
+
+cons4impf = Table[ SP[p[posf[[i]][[1]]],p[posf[[i]][[1]]]] :> 0 ,{i,1,Length[posf]}];
+
+rules = Join[cons4impe,cons4impf];
+
+rule = {(a__+b__)^2 -> SP[a,a]+ SP[b,b] + 2*SP[a,b]};
+
+globcons = {p[n] -> Sum[-p[i],{i,1,n-1}]};
+
+perm = Permutations[Table[i,{i,1,n-1}],{2}];
+perm = ReplaceRepeated[perm,{x___,{z_,w_},y___,{w_,z_},l___}->{x,y,{z,w},l}];
+perm1 = ReplaceAll[perm,{z_,w_}->z];
+perm2 = ReplaceAll[perm,{z_,w_}->w];
+
+mandel = Table[ SP[p[perm1[[i]]],p[perm2[[i]]]] -> (-t[i]+SP[p[perm1[[i]]],p[perm1[[i]]]]+SP[p[perm2[[i]]],p[perm2[[i]]]])/2 ,{i,1,Length[perm]}];
+
+If[n==4,
+
+mandelcons = {t[Length[perm]] -> Sum[-t[i],{i,1,Length[perm]-1}] + Sum[SP[p[l],p[l]],{l,1,n} ]},
+
+mandel 
+(*If there are more than four particles, the program needs the equations to reduce the expression to the minimun number of Lorentz scalars,
+so two for 4 particles, five for 5, eight for 6: 4N - N -4 -6 = 3N - 10 independent variables.
+*)
+];
 
 ma = ReplaceAll[ma,rule];
 
-
-Print[ma];
-
 ma = ReplaceAll[ma,rules];
-
-Print[ma];
 
 ma = ma //. sub;
 
-ma = ma //. rules;
-
 ma = Together[Simplify[ma]];
-
-Print[ma];
-
-globcons = {p[1] -> Sum[-p[i],{i,2,Length[iden]}]};
-
-(*ma = ma //. globcons;*)
-
-ma = ma //. sub11;
-
-
-Print[ma];
-
-ma = ReplaceRepeated[ma,sub12];
-
-ma = ma //. sub12;
-
-Print[rules];
-
-ma = ma //. rules;
 
 ma = ma //. globcons;
 
 ma = ma //. sub11;
 
-ma = ma //. sub12;
+ma = ReplaceRepeated[ma,sub12];
 
-ma = ma //.rules;
+ma = ma //. mandel;
+
+ma = ma //. mandelcons;
+
+ma = ma //. rules;
+
+ma = Simplify[ma];
+
+If[ma == 0,
+Print["Verificata identità di Ward"],
+Print["Non verificata identità di Ward"]
+]
 
 ma
 
 ];
-
-(*WardIdentity[graph_List, iden_List, photon_] := Module[ {temp,ma,n},
-
-pose = Position[iden,1];
-
-If[ iden[[photon]] =!= 0,
-
-      Return[Print["In input serve la posizione di un fotone!"]],
-
-      ma = Expand[totalamplitude[graph,iden]*SP[{mi[photon]},p[photon]]]
-
-];
-
-ma = ma //. sub;
-
-
-
-ma = ma //. sub1;
-
-rules = {SP[p[photon],p[photon]] -> 0, (p[a_]+p[b_])^2 - m^2 -> 2*SP[p[a],p[b]] };
-
-Print[ma//.rules];
-
-ma = Simplify[Together[ma //. rules ]];
-
-ma = ma //. sub2;
-
-ma
-
-
-];*)
-
-
-(*WardIdentity[graph_List, iden_List] := Module[ {temp,ma,n},
-
-      n = Length[iden];
-
-      posf = Position[iden,0];
-      pose = Position[iden,1];
-
-      ma = write[#,iden]&/@graph;
-
-      ma = ma * SP[{mi[posf[[2]][[1]]]},epsilon[posf[[2]][[1]]]]*SP[{mi[posf[[1]][[1]]]},epsilon[posf[[1]][[1]]]];
-
-      ma = ma //. sub;
-
-      Print[ma];
-
-      ma = ma /. SP[epsilon[a_],b___+_.*p[a_]+c___] -> SP[p[a],b+c];
-
-      Print[ma];
-
-      (*per costruzione credo sia sempre il primo a essere quello che compare nel propagatore*)
-
-      ma = ma /. -m^2+(p[c_]+p[b_])^2 -> 2*SP[p[c],p[b]]; (*per costruzione del fatto che hp fotoni*)
-
-      Print[ma];
-
-      ma = ma /. SP[w_.*o_,y_.*u_] -> w*y*SP[o,u];
-
-      Print[ma];
-
-      ma = ma /. {l_.*SP[epsilon[n_],k___],j___,o_.*SP[epsilon[n_],epsilon[m_]]}->{l*SP[epsilon[n],k],j,o*SP[epsilon[n],p[m]]};
-
-      Print[ma];
-
-      ma = Apply[Plus,ma];
-
-      Print[ma];
-
-      ma = ma //. j_.*SP[epsilon[a_],b_]+k_.*SP[epsilon[a_],c_] -> SP[epsilon[a],j*b+k*c];
-      
-      ma = ma //Simplify;
-
-      (*If[MatchQ[ma,SP[0,epsilon[a_]]]===False,
-      
-      ];*)
-
-      ma
-
-
-
-];*)
